@@ -1,0 +1,25 @@
+# ⚙ Node modules
+node_modules/
+
+# ⚙ Build outputs
+lib/
+dist/
+temp/
+release/
+sharepoint/solution/debug/
+
+# ⚙ SPFx package output
+*.sppkg
+
+# ⚙ IDE & config files
+.vscode/
+.yo-rc.json
+.npmrc
+*.log
+.DS_Store
+
+# ⚙ Testing and coverage
+coverage/
+
+# ⚙ Lock files (optional)
+package-lock.json

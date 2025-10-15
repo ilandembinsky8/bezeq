@@ -1,0 +1,19 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "bmaster-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/bmaster/BmasterWebPart.js",
+          "manifest": "./src/webparts/bmaster/BmasterWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "BmasterWebPartStrings": "lib/webparts/bmaster/loc/{locale}.js",
+    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js"
+  }
+}
