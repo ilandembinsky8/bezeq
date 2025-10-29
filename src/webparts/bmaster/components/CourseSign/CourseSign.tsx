@@ -112,7 +112,7 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
 
     }
 
-    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string): Promise<void> {
+    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string, ID?: number): Promise<void> {
         try {
             console.log('Preparing to trigger Power Automate flow...');
 
@@ -132,16 +132,17 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
 
             // Prepare the body
             const requestBody: any = {
-    courseTitle: courseTitle,
-    startDate: startDate.toISOString(),
-    endDate: finishDate.toISOString(),
-    attendeeEmail: userEmail,
-    attendeeName: userName
-};
+                courseTitle: courseTitle,
+                startDate: startDate.toISOString(),
+                endDate: finishDate.toISOString(),
+                attendeeEmail: userEmail,
+                attendeeName: userName,
+                ID: ID
+            };
 
-if (location?.trim()) {
-    requestBody.location = location.trim();
-}
+            if (location?.trim()) {
+                requestBody.location = location.trim();
+            }
 
             // Make the HTTP POST request to Power Automate
             const response = await fetch(flowUrl, {
@@ -281,7 +282,9 @@ if (location?.trim()) {
                                                         _item.courseName.Title,
                                                         new Date(meeting.startDate),
                                                         new Date(meeting.finishDate),
-                                                        meeting.location
+                                                        meeting.location,
+                                                        meeting.ID,
+
                                                     );
                                                 })
                                             );

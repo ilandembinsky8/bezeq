@@ -424,9 +424,9 @@ div {
     position: relative;
 }
 
-.coursesSection .oneCourse:nth-child(4n) {
-    margin-left: 0px;
-}
+// .coursesSection .oneCourse:nth-child(4n) {
+//     margin-left: 0px;
+// }
 
 
 .coursesSection .courseName {
@@ -445,7 +445,6 @@ div {
 }
 
 
-
 .coursesSection .smallButton {
     float: right;
     width: 100%;
@@ -455,7 +454,7 @@ div {
     background-repeat: no-repeat;
     background-position: 40% top;
     // padding-right: 80px;
-    cursor: pointer;
+    cursor: default;
 }
 
 /*only one course*/
@@ -598,7 +597,9 @@ div {
     color: #fff;
     border-radius: 12px;
     padding: 20px 28px;
-    width: 320px;
+    width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
 }
 
@@ -630,11 +631,20 @@ div {
     list-style: none;
     padding: 0;
     margin: 0;
+    color: black;
+    text-align: right;
 }
 
 .popupContent li {
-    padding: 6px 0;
+    // padding: 6px 0;
     border-bottom: 1px solid #333;
+    font-size: 14px;
+    width: auto;
+    background-color: white;
+}
+
+.popupContent li:hover {
+    background-color: white;
 }
 
 .popupContent li:last-child {
@@ -690,7 +700,84 @@ div {
     border-color: #aaa;
 }
 
+.customPeoplePicker {
+    width: 100%;
+    max-width: 400px;
+    margin: 10px auto;
+    text-align: left;
+}
 
+.searchBox {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+}
+
+.userList {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid #eee;
+    background: #fff;
+    border-radius: 6px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.userItem {
+    padding: 8px;
+    cursor: pointer;
+    margin-bottom: 0px;
+}
+
+.userItem:hover {
+    background-color: #f5f5f5;
+}
+
+.selectedUsers {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    gap: 5px;
+}
+
+.chip {
+    background: #0078d4;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.email {
+    font-size: 12px;
+    color: #555;
+}
+
+.loadingContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 16px;
+    padding: 40px;
+}
+
+.loadingContainer i {
+    margin-left: 10px;
+    font-size: 22px;
+}
+
+.disabledButton {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 
 
 
@@ -776,9 +863,9 @@ div {
         width: 33.33%;
     }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+    // .coursesSection .smallButton {
+    //     padding-right: 85px;
+    // }
 }
 
 @media only screen and (max-width: 992px) {
@@ -905,9 +992,9 @@ div {
         width: 50%;
     }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+    // .coursesSection .smallButton {
+    //     padding-right: 85px;
+    // }
 
     .coursesSection .right {
         width: 100%;
@@ -933,9 +1020,9 @@ div {
 
     }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+    // .coursesSection .smallButton {
+    //     padding-right: 85px;
+    // }
 }
 
 @media only screen and (max-width: 640px) {
@@ -952,19 +1039,13 @@ div {
     }
 
     .coursesSection .courseName {
-        margin-top: 70px;
+        margin-top: 120px;
         font-size: 0.8rem
     }
 
-    .coursesSection .smallButton {
-        background-size: 90%;
-        margin-top: 50px;
-        font-size: 0.8rem
-    }
-
-    .coursesSection .smallButton {
-        padding-right: 155px;
-    }
+    // .coursesSection .smallButton {
+    //     padding-top: 35px;
+    // }
 }
 
 @media only screen and (max-width: 480px) {
@@ -978,12 +1059,12 @@ div {
 
     .coursesSection .oneCourse {
         width: 30vh;
-        margin-bottom: 30px;
-
+        margin-bottom: 20px;
+        background-size: 280px 156px;
     }
 
     .coursesSection .smallButton {
-        display: none;
+        height: 40px;
     }
 
     .coursesSection .right .buttons .inner {

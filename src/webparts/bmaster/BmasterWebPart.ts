@@ -17,8 +17,8 @@ import { getSP } from './PNPConfig/pnpjsConfig';
 
 export interface IBmasterWebPartProps {
   description: string;
-  PageType:string;
-  SlideShowInteval:string;
+  PageType: string;
+  SlideShowInteval: string;
 }
 
 export default class BmasterWebPart extends BaseClientSideWebPart<IBmasterWebPartProps> {
@@ -35,8 +35,8 @@ export default class BmasterWebPart extends BaseClientSideWebPart<IBmasterWebPar
         environmentMessage: this._environmentMessage,
         hasTeamsContext: !!this.context.sdks.microsoftTeams,
         userDisplayName: this.context.pageContext.user.displayName,
-        PageType:this.properties.PageType,
-        SlideShowInteval:this.properties.SlideShowInteval,
+        PageType: this.properties.PageType,
+        SlideShowInteval: this.properties.SlideShowInteval,
         context: this.context
       }
     );
@@ -45,13 +45,13 @@ export default class BmasterWebPart extends BaseClientSideWebPart<IBmasterWebPar
   }
 
   // protected onInit(): Promise<void> {
-    protected async onInit(): Promise<void> {   
-    
+  protected async onInit(): Promise<void> {
+
     //   return this._getEnvironmentMessage().then(message => {
     //   this._environmentMessage = message;
     // });
 
-//    this._environmentMessage = this._getEnvironmentMessage();
+    //    this._environmentMessage = this._getEnvironmentMessage();
     await super.onInit();
     getSP(this.context);
   }
@@ -131,9 +131,9 @@ export default class BmasterWebPart extends BaseClientSideWebPart<IBmasterWebPar
                 PropertyPaneTextField('SlideShowInteval', {
                   label: strings.PhotoGallerySlideshowlblName
                 })
-                
 
-                
+
+
               ]
             }
           ]

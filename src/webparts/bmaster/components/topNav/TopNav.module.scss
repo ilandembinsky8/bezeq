@@ -324,7 +324,7 @@ div {
         display: flex;
         justify-content: center;
     }
-    
+
 
     .upperMenu .mobileMenu,
     .upperMenu .mobileSearch {
@@ -483,9 +483,10 @@ div {
     .upperMenu .search .inner .micro {
         display: none;
     }
+
     .upperMenu .search .inner .input {
         margin-right: 10px;
-}
+    }
 
 }
 
@@ -507,22 +508,24 @@ div {
         width: 90%;
         float: right;
     }
+
     .upperMenu .search {
         display: none;
     }
+
     .upperMenu .search.mobileVisible {
         float: right;
         font-size: 53px;
         height: auto;
         margin-top: 0px;
         /* width: 33.33%; */
-        margin-top: -150px;
+        margin-top: -165px;
         position: relative;
         width: 100%;
         display: flex;
         justify-content: center;
     }
-    
+
 }
 
 

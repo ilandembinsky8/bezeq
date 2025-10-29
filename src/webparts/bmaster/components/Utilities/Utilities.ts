@@ -269,14 +269,15 @@ export class Utilities {
       filteredItems.map(async (course) => {
         const meetings = await spCache.web.lists
           .getByTitle(this.List_NAME_CoursesMeetingsListName)
-          .items.select("startDate", "endDate", "location", "actualCourse/ID")
+          .items.select("startDate", "endDate", "location", "actualCourse/ID", "ID")
           .expand("actualCourse")
           .filter(`actualCourse/ID eq ${course.ID}`)();
 
         course.meetings = meetings.map(meeting => ({
           startDate: meeting.startDate,
           finishDate: meeting.endDate,
-          location: meeting.location ? meeting.location : course.location
+          location: meeting.location ? meeting.location : course.location,
+          ID: meeting.ID
           //location: meeting.location,
         }));
       })

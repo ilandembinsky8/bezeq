@@ -50,7 +50,7 @@ export default class Bmaster extends React.Component<IBmasterProps> {
         }
 
         {_PageType === 'Courses' &&
-          <CoursesSection></CoursesSection>
+          <CoursesSection context={this.props.context} />
         }
 
         {_PageType === 'OneCourse' &&
