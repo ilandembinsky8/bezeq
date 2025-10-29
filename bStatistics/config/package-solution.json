@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "bezeq-statistics-client-side-solution",
+    "id": "c94e0304-1012-45d0-b90a-45fbb7fcbfdc",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.20.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "BezeqStatistics description"
+      },
+      "longDescription": {
+        "default": "BezeqStatistics description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "bezeq-statistics Feature",
+        "description": "The feature that activates elements of the bezeq-statistics solution.",
+        "id": "a9995a33-ca90-4ee3-a66e-ec32391232d3",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/bezeq-statistics.sppkg"
+  }
+}

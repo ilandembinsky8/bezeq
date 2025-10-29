@@ -1,0 +1,21 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "plusBeta": false,
+    "isCreatingSolution": false,
+    "nodeVersion": "22.14.0",
+    "sdksVersions": {
+      "@microsoft/microsoft-graph-client": "3.0.2",
+      "@microsoft/teams-js": "2.24.0"
+    },
+    "version": "1.20.0",
+    "libraryName": "bezeq-statistics",
+    "libraryId": "c94e0304-1012-45d0-b90a-45fbb7fcbfdc",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "BezeqStatistics",
+    "solutionShortDescription": "BezeqStatistics description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

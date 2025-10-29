@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "bezeq-statistics-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/bezeqStatistics/BezeqStatisticsWebPart.js",
+          "manifest": "./src/webparts/bezeqStatistics/BezeqStatisticsWebPart.manifest.json"
+        }
+      ]
+    },
+    "b-page-count-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/bPageCount/BPageCountWebPart.js",
+          "manifest": "./src/webparts/bPageCount/BPageCountWebPart.manifest.json"
+        }
+      ]
+    },
+    "b-personal-zone-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/bPersonalZone/BPersonalZoneWebPart.js",
+          "manifest": "./src/webparts/bPersonalZone/BPersonalZoneWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "BezeqStatisticsWebPartStrings": "lib/webparts/bezeqStatistics/loc/{locale}.js",
+    "BPageCountWebPartStrings": "lib/webparts/bPageCount/loc/{locale}.js",
+    "BPersonalZoneWebPartStrings": "lib/webparts/bPersonalZone/loc/{locale}.js"
+  }
+}

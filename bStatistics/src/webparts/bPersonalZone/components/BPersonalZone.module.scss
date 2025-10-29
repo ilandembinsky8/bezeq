@@ -1,0 +1,61 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+.bPersonalZone {
+  direction: rtl;
+  text-align: right;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 6px rgba(0,0,0,.12);
+  padding: 14px;
+}
+
+.header {
+  font-size: large;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.header2 {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.info { color: #666; }
+
+.error { color: #b00020; }
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item + .item { border-top: 1px solid #eee; }
+
+.link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.link:hover .title { text-decoration: underline; }
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 12px;
+  color: #888;
+  flex: 0 0 auto;
+}
