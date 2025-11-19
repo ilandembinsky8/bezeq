@@ -3,13 +3,36 @@ import styles from './BPersonalZone.module.scss';
 import type { IBPersonalZoneProps } from './IBPersonalZoneProps';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 
-// ---- Props ----
+// ==== CONFIG – להתאים לפי הסביבה שלך ====
+
+// רשימת הסטטיסטיקות
 const LIST_TITLE = 'BezeqStatistics';
-const PAGES_LIST_TITLE = 'BezeqPages';
+
+// רשימות מקור הדפים
+const DOMAINS_LIST_TITLE = 'תחום';      // רשימת התחומים
+const COURSES_LIST_TITLE = 'קורסים';    // רשימת הקורסים
+
+// שם השדה של מילות המפתח בשתי הרשימות
+const KEYWORDS_FIELD = 'KeyWords';
+
+// עמודות מזהות דף ב-BezeqStatistics
+const PAGE_ID_FIELD = 'PageID';         // מספר ה-ID ברשימת תחום/קורסים
+const PAGE_TYPE_FIELD = 'PageType';     // "תחום" / "קורס"
+
+// כתובות הדפים
+const DOMAIN_PAGE_RELATIVE_URL = '/SitePages/Courses.aspx';
+const COURSE_PAGE_RELATIVE_URL = '/SitePages/OneCourse.aspx';
+
+// שמות הפרמטרים ב-QueryString
+const DOMAIN_QUERY_PARAM = 'SectionID';
+const COURSE_QUERY_PARAM = 'CourseID';
+
+// כמות פריטים
 const MAX_ITEMS = 10;
 const TOP_VISITS_FOR_RECS = 5;
 const MAX_RECOMMENDED = 10;
-const KEYWORDS_FIELD = 'KeyWords';
+
+// ==== TYPES ====
 
 type RawStatItem = {
   Id: number;
@@ -17,19 +40,26 @@ type RawStatItem = {
   Link?: string;
   Created: string;
   Author?: { Id: number };
+  PageID?: number;
+  PageType?: string;
+  [key: string]: any;
 };
 
-type RawPageItem = {
-  Id: number;
-  Title?: string;
-  Link?: string;           
-  [key: string]: any;     
+type PageRef = {
+  type: 'domain' | 'course';
+  id: number;
 };
 
 type DedupedVisit = {
   title: string;
   url: string;
   lastVisited: Date;
+  ref?: PageRef | null;
+};
+
+type SourceItem = PageRef & {
+  title: string;
+  keywordsRaw: string;
 };
 
 type State = {
@@ -48,10 +78,13 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     );
   }
 
+  // ================== LOAD MAIN DATA ==================
+
   private async loadData(): Promise<void> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
 
+    // --- current user ---
     const meResp = await context.spHttpClient.get(
       `${webUrl}/_api/web/currentuser`,
       SPHttpClient.configurations.v1
@@ -61,7 +94,8 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const myId: number = me?.Id;
     if (!myId) throw new Error('Cannot resolve current user id');
 
-    const select = `$select=Id,Title,Link,Created,Author/Id`;
+    // --- load last visits from BezeqStatistics ---
+    const select = `$select=Id,Title,Link,Created,Author/Id,${PAGE_ID_FIELD},${PAGE_TYPE_FIELD}`;
     const expand = `$expand=Author`;
     const filter = `$filter=Author/Id eq ${myId}`;
     const orderby = `$orderby=Created desc`;
@@ -81,21 +115,52 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const data = await listResp.json();
     const rows: RawStatItem[] = data?.value || [];
 
+    // --- דה־דופ לפי כותרת (primary), ואם אין – לפי type+id או URL ---
     const seen = new Set<string>();
     const deduped: DedupedVisit[] = [];
 
     for (const r of rows) {
-      const url = (r.Link || '').trim();
-      if (!url) continue;
+      const rawPageId = (r as any)[PAGE_ID_FIELD] as number | undefined;
+      const rawPageType = ((r as any)[PAGE_TYPE_FIELD] as string | undefined)?.trim();
 
-      const key = this.normalizeUrlForKey(url);
+      let ref: PageRef | null = null;
+      if (rawPageId && rawPageType) {
+        if (rawPageType === 'תחום') {
+          ref = { type: 'domain', id: rawPageId };
+        } else if (rawPageType === 'קורס') {
+          ref = { type: 'course', id: rawPageId };
+        }
+      }
+
+      const rawUrl = (r.Link || '').trim();
+      const url = ref
+        ? this.buildPageUrl(ref)
+        : rawUrl;
+
+      const rawTitle = (r.Title || '').trim();
+
+      // אם אין לא כותרת ולא URL – אין מה להציג
+      if (!rawTitle && !url) continue;
+
+      // מפתח דה־דופ:
+      // 1. קודם כל לפי כותרת (case-insensitive)
+      // 2. אם אין כותרת – לפי type+id
+      // 3. ואם גם זה אין – לפי URL מנורמל
+      const key =
+        rawTitle
+          ? rawTitle.toLowerCase()
+          : ref
+            ? `${ref.type}:${ref.id}`
+            : this.normalizeUrlForKey(url);
+
       if (seen.has(key)) continue;
-
       seen.add(key);
+
       deduped.push({
-        url,
-        title: r.Title || url,
+        url: url || '',
+        title: rawTitle || url || '(ללא כותרת)',
         lastVisited: new Date(r.Created),
+        ref,
       });
 
       if (deduped.length >= MAX_ITEMS) break;
@@ -108,65 +173,95 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     this.setState({ loading: false, items: deduped, recommendations });
   }
 
+
+  // ================== RECOMMENDATIONS ==================
+
   private async buildRecommendations(recent: DedupedVisit[]): Promise<DedupedVisit[]> {
-    // seed = חמשת הדפים הראשונים שהוצגו למשתמש
     const seed = recent.slice(0, TOP_VISITS_FOR_RECS);
     if (seed.length === 0) return [];
 
     const recentKeys = new Set(seed.map(s => this.normalizeUrlForKey(s.url)));
-    const seedTitles = new Set(seed.map(s => (s.title || '').trim()).filter(Boolean));
 
-    // מילות מפתח של seed מתוך BezeqPages
-    const seedPages = await this.fetchPagesByTitles(Array.from(seedTitles));
+    // נעדיף לקחת את ה-ref מהסטטיסטיקות. רק אם אין – נפרש מה-URL
+    const seedRefs: PageRef[] = [];
+    for (const s of seed) {
+      if (s.ref) {
+        seedRefs.push(s.ref);
+      } else {
+        const ref = this.parsePageRefFromUrl(s.url);
+        if (ref) seedRefs.push(ref);
+      }
+    }
+
+    if (seedRefs.length === 0) return [];
+
+    const domainIds = seedRefs.filter(r => r.type === 'domain').map(r => r.id);
+    const courseIds = seedRefs.filter(r => r.type === 'course').map(r => r.id);
+
+    // --- מילות מפתח עבור ה-seed משתי הרשימות ---
+    const seedItems: SourceItem[] = [
+      ...await this.fetchItemsByIds(DOMAINS_LIST_TITLE, 'domain', domainIds),
+      ...await this.fetchItemsByIds(COURSES_LIST_TITLE, 'course', courseIds),
+    ];
+
     const kwSet = new Set<string>();
-    for (const p of seedPages) {
-      const kws = this.parseKeywords(p[KEYWORDS_FIELD] || '');
+    for (const item of seedItems) {
+      const kws = this.parseKeywords(item.keywordsRaw || '');
       for (const k of kws) kwSet.add(k);
     }
     if (kwSet.size === 0) return [];
 
-    // כל הדפים עם לינק+מילות מפתח מ-BezeqPages
-    const allPages = await this.fetchAllPages();
+    // --- כל הפריטים האפשריים משתי הרשימות ---
+    const allDomainItems = await this.fetchAllItems(DOMAINS_LIST_TITLE, 'domain');
+    const allCourseItems = await this.fetchAllItems(COURSES_LIST_TITLE, 'course');
+    const allItems: SourceItem[] = [...allDomainItems, ...allCourseItems];
 
-    debugger;
-    type Cand = { id: number; title: string; link: string; overlap: number; key: string };
+    const seedKeySet = new Set<string>(
+      seedRefs.map(r => `${r.type}:${r.id}`)
+    );
+
+    type Cand = { source: SourceItem; overlap: number; key: string };
     const candidates: Cand[] = [];
 
-    for (const p of allPages) {
-      const title = (p.Title || '').trim();
-      const link = (p.Link || '').trim();
-      if (!title) continue;
+    for (const item of allItems) {
+      const itemKey = `${item.type}:${item.id}`;
 
-      // לא ממליצים על מה שכבר הופיע ב"דפים אחרונים" / seed
-      if (seedTitles.has(title)) continue;
+      // לא ממליצים על מה שכבר seed
+      if (seedKeySet.has(itemKey)) continue;
 
-      const k = this.normalizeUrlForKey(link);
-      if (recentKeys.has(k)) continue;
+      const url = this.buildPageUrl(item);
+      const norm = this.normalizeUrlForKey(url);
+      if (recentKeys.has(norm)) continue;
 
-      const kws = this.parseKeywords(p[KEYWORDS_FIELD] || '');
+      const kws = this.parseKeywords(item.keywordsRaw || '');
       let overlap = 0;
       for (const kw of kws) if (kwSet.has(kw)) overlap++;
 
       if (overlap > 0) {
-        candidates.push({ id: p.Id, title, link, overlap, key: k });
+        candidates.push({
+          source: item,
+          overlap,
+          key: norm,
+        });
       }
     }
 
-    // מיון: התאמה גבוהה קודם; בשוויון—Id גבוה קודם (תחליף “סביר” לחדשותיות)
-    candidates.sort((a, b) => (b.overlap - a.overlap) || (b.id - a.id));
+    candidates.sort((a, b) =>
+      (b.overlap - a.overlap) ||
+      (b.source.id - a.source.id)
+    );
 
-    // דילול לפי URL מנורמל והגבלה ל- MAX_RECOMMENDED
     const seenRec = new Set<string>();
     const recommended: DedupedVisit[] = [];
-    for (const c of candidates) {
-      if (seenRec.has(c.key)) continue;
-      seenRec.add(c.key);
+
+    for (const cand of candidates) {
+      if (seenRec.has(cand.key)) continue;
+      seenRec.add(cand.key);
 
       recommended.push({
-        url: c.link,
-        title: c.title,
-        // אין לנו "תאריך ביקור" אמיתי פה—נכניס now לשדה טכני בלבד (לא מוצג ב־UI למטה)
-        lastVisited: new Date()
+        url: this.buildPageUrl(cand.source),
+        title: cand.source.title,
+        lastVisited: new Date(), // לא מוצג
       });
 
       if (recommended.length >= MAX_RECOMMENDED) break;
@@ -175,56 +270,73 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     return recommended;
   }
 
+  // ================== HELPERS – DATA FROM LISTS ==================
 
-  // ---- עזר לשאילתות BezeqPages ----
-
-  /** שולף מ-BezeqPages לפי רשימת כותרות */
-  private async fetchPagesByTitles(titles: string[]): Promise<RawPageItem[]> {
+  private async fetchItemsByIds(
+    listTitle: string,
+    type: 'domain' | 'course',
+    ids: number[]
+  ): Promise<SourceItem[]> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
-    const results: RawPageItem[] = [];
+    const results: SourceItem[] = [];
+    const cleanIds = Array.from(new Set(ids.filter(id => !!id)));
 
-    const groups = this.chunk(
-      titles.filter(Boolean).map(t => t.trim()),
-      15
-    );
+    if (cleanIds.length === 0) return [];
 
-    debugger;
+    const groups = this.chunk(cleanIds, 15);
+
     for (const g of groups) {
-      const orFilter = g.map(t => `Title eq '${this.escODataLiteral(t)}'`).join(' or ');
-      const select = `$select=Id,Title,Link,${KEYWORDS_FIELD}`;
+      const orFilter = g.map(id => `Id eq ${id}`).join(' or ');
+      const select = `$select=Id,Title,${KEYWORDS_FIELD}`;
       const filter = `$filter=(${orFilter})`;
       const url = encodeURI(
-        `${webUrl}/_api/web/lists/getbytitle('${PAGES_LIST_TITLE}')/items?${select}&${filter}&$top=500`
+        `${webUrl}/_api/web/lists/getbytitle('${listTitle}')/items?${select}&${filter}&$top=500`
       );
       const resp = await context.spHttpClient.get(url, SPHttpClient.configurations.v1);
       if (!resp.ok) continue;
       const json = await resp.json();
-      results.push(...(json?.value || []));
+      const items = (json?.value || []) as any[];
+
+      for (const it of items) {
+        results.push({
+          type,
+          id: it.Id,
+          title: (it.Title || '').trim() || '(ללא כותרת)',
+          keywordsRaw: (it[KEYWORDS_FIELD] || '').toString(),
+        });
+      }
     }
+
     return results;
   }
 
-  private async fetchAllPages(): Promise<RawPageItem[]> {
+  private async fetchAllItems(
+    listTitle: string,
+    type: 'domain' | 'course'
+  ): Promise<SourceItem[]> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
-    const select = `$select=Id,Title,Link,${KEYWORDS_FIELD}`;
+    const select = `$select=Id,Title,${KEYWORDS_FIELD}`;
     const orderby = `$orderby=Id asc`;
     const top = `$top=2000`;
     const url = encodeURI(
-      `${webUrl}/_api/web/lists/getbytitle('${PAGES_LIST_TITLE}')/items?${select}&${orderby}&${top}`
+      `${webUrl}/_api/web/lists/getbytitle('${listTitle}')/items?${select}&${orderby}&${top}`
     );
     const resp = await context.spHttpClient.get(url, SPHttpClient.configurations.v1);
     if (!resp.ok) return [];
     const json = await resp.json();
-    return json?.value || [];
+    const rows = (json?.value || []) as any[];
+
+    return rows.map(it => ({
+      type,
+      id: it.Id,
+      title: (it.Title || '').trim() || '(ללא כותרת)',
+      keywordsRaw: (it[KEYWORDS_FIELD] || '').toString(),
+    }));
   }
 
-  // ---- Utilities ----
-
-  private escODataLiteral(v: string): string {
-    return v.replace(/'/g, "''");
-  }
+  // ================== URL / KEYWORDS HELPERS ==================
 
   private chunk<T>(arr: T[], size: number): T[][] {
     const out: T[][] = [];
@@ -234,9 +346,52 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
 
   private parseKeywords(raw: string): string[] {
     return raw
-      .split(/[;|,]/) // תומך ; וגם , אם יופיע
+      .split(/[;|,]/)
       .map(s => s.trim().toLowerCase())
       .filter(Boolean);
+  }
+
+  private buildPageUrl(ref: PageRef): string {
+    const base = this.props.context.pageContext.web.absoluteUrl.replace(/\/$/, '');
+    const isDomain = ref.type === 'domain';
+    const pagePath = isDomain ? DOMAIN_PAGE_RELATIVE_URL : COURSE_PAGE_RELATIVE_URL;
+    const paramName = isDomain ? DOMAIN_QUERY_PARAM : COURSE_QUERY_PARAM;
+    const separator = pagePath.indexOf('?') >= 0 ? '&' : '?';
+    return `${base}${pagePath}${separator}${paramName}=${encodeURIComponent(ref.id.toString())}`;
+  }
+
+  private parsePageRefFromUrl(rawUrl: string): PageRef | null {
+    const base = this.props.context.pageContext.web.absoluteUrl;
+    try {
+      const u = new URL(rawUrl.trim(), base);
+      const pathname = u.pathname.toLowerCase();
+
+      const isDomain = pathname.indexOf(DOMAIN_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
+      const isCourse = pathname.indexOf(COURSE_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
+
+      if (!isDomain && !isCourse) return null;
+
+      const params = u.searchParams;
+      if (isDomain) {
+        const idStr = params.get(DOMAIN_QUERY_PARAM);
+        if (!idStr) return null;
+        const id = parseInt(idStr, 10);
+        if (!id) return null;
+        return { type: 'domain', id };
+      }
+
+      if (isCourse) {
+        const idStr = params.get(COURSE_QUERY_PARAM);
+        if (!idStr) return null;
+        const id = parseInt(idStr, 10);
+        if (!id) return null;
+        return { type: 'course', id };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private normalizeUrlForKey(rawUrl: string): string {
@@ -264,6 +419,8 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     if (d.toDateString() === yesterday.toDateString()) return `אתמול ${d.toLocaleTimeString()}`;
     return d.toLocaleString();
   }
+
+  // ================== RENDER ==================
 
   public render(): React.ReactElement<IBPersonalZoneProps> {
     const { loading, error, items, recommendations } = this.state;
@@ -293,7 +450,6 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
           </ul>
         )}
 
-        {/* --- דפים מומלצים --- */}
         {!loading && !error && (
           <>
             <div className={styles.header2} style={{ marginTop: 14 }}>דפים מומלצים</div>
@@ -305,7 +461,6 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
                   <li key={`rec-${idx}`} className={styles.item}>
                     <a href={it.url} className={styles.link} target="_self" rel="noopener">
                       <span className={styles.title}>{it.title}</span>
-                      {/* בלי תאריך למומלצים */}
                     </a>
                   </li>
                 ))}
@@ -313,7 +468,6 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
             )}
           </>
         )}
-
       </section>
     );
   }

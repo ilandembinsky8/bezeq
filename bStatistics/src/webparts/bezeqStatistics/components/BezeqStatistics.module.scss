@@ -1,32 +1,181 @@
 @import '~@fluentui/react/dist/sass/References.scss';
 
 
-.bezeqStatistics { 
-  
-  direction: rtl; text-align: right; 
+:global(.root-178) {
+  background: none !important;
+  background-color: black !important;
+}
+
+:global(.root-149.root-149.root-149.root-149.root-149) {
+  background: none !important;
+  background-color: black !important;
+}
+
+.bezeqStatistics {
+  direction: rtl;
+  text-align: right;
+  color: #e5e7eb; // טקסט בהיר על רקע שחור
+  background: transparent;
+  font-size: 14px;
 
   .header {
-    font-size: large;
+    font-size: 18px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    color: #60a5fa; // כחול
+    padding-bottom: 4px;
+    border-bottom: 1px solid #1f2937;
   }
 }
 
+/* ===== Toolbar ===== */
 
-.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-.select, .date {
-  padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff;
+.toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #020617;        // שחור־כחול
+  border: 1px solid #1e293b;  // מסגרת עדינה
 }
+
+.select,
+.date {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #1e293b;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+.select:focus,
+.date:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
+}
+
+/* כפתורים משותפים (רענון / סגור) */
+
+.button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #1e293b;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.button:hover:not(:disabled) {
+  background: #0b1120;
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ===== Tables ===== */
+
 .table {
-  width: 100%; border-collapse: collapse; background: #fff;
-  box-shadow: 0 0 6px rgba(0,0,0,.06); border-radius: 6px; overflow: hidden;
+  width: 100%;
+  border-collapse: collapse;
+  background: #020617; // “כרטיס” כהה
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  overflow: hidden;
+  color: #e5e7eb;
 }
-.table th, .table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
-.table th { background: #f6f8fa; font-weight: 600; }
-.linkLike { color: #0b6bf2; cursor: pointer; text-decoration: underline; }
-.badge { display:inline-block; min-width:28px; text-align:center; padding:2px 6px; border-radius:999px; background:#eef4ff; border:1px solid #d8e7ff; }
-.note { color:#57606a; font-size:12px; }
-.split { display:grid; grid-template-columns: 1fr; gap:16px; }
-@media (min-width: 900px) { .split { grid-template-columns: 1.2fr .8fr; } }
-.panel { background:#fff; box-shadow:0 0 6px rgba(0,0,0,.06); border-radius:6px; padding:12px; }
-.panel h3 { margin:0 0 8px 0; }
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.table th {
+  background: #020617;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.table tbody tr:hover {
+  background: rgba(30, 64, 175, 0.35); // כחול כהה שקוף
+}
+
+/* לינק “לחיץ” לתצוגת Drilldown */
+
+.linkLike {
+  color: #60a5fa;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.linkLike:hover {
+  color: #93c5fd;
+}
+
+/* Badge לכמות כניסות */
+
+.badge {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #0b1120;
+  border: 1px solid #1d4ed8;
+  color: #bfdbfe;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* טקסט הסבר */
+
+.note {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* ===== Layout split ===== */
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .split {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+}
+
+/* ===== Panel (פירוט לפי דף / משתמש) ===== */
+
+.panel {
+  background: #020617;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid #1e293b;
+}
+
+.panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  color: #e5e7eb;
+}

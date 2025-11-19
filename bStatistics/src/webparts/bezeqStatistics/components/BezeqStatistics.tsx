@@ -7,13 +7,14 @@ type ReportType = 'byPage' | 'byUser';
 
 type RawItem = {
   Id: number;
-  Title: string;     
-  Created: string;  
+  Title: string;
+  Created: string;
   Author?: { Title?: string; Email?: string };
   UserNameText?: string;
+  PageType?: string;
 };
 
-type PageAgg = { page: string; total: number };
+type PageAgg = { page: string; total: number; pageType?: string };
 type UserAgg = { userKey: string; total: number };
 
 interface State {
@@ -38,7 +39,7 @@ interface State {
 
 
 const LIST_TITLE = 'BezeqStatistics';
-const USER_TEXT_FIELD = 'UserNameText'; 
+const USER_TEXT_FIELD = 'UserNameText';
 
 export default class BezeqStatistics extends React.Component<IBezeqStatisticsProps, State> {
 
@@ -50,8 +51,8 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
 
     this.state = {
       report: 'byPage',
-      dateFrom: weekAgo.toISOString().slice(0,10),
-      dateTo: today.toISOString().slice(0,10),
+      dateFrom: weekAgo.toISOString().slice(0, 10),
+      dateTo: today.toISOString().slice(0, 10),
       loading: false,
       rawItems: [],
       pageAgg: [],
@@ -61,7 +62,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       selectedUser: null,
       selectedUserRows: []
     };
-    
+
   }
 
   public componentDidMount(): void {
@@ -74,7 +75,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       this.setState({ loading: true, error: null });
 
       const webUrl = this.props.context.pageContext.web.absoluteUrl;
-      const select = `$select=Id,Title,Created,${USER_TEXT_FIELD},Author/Title`;
+      const select = `$select=Id,Title,Created,PageType,${USER_TEXT_FIELD},Author/Title`;
       const expand = `$expand=Author`;
       const orderby = `$orderby=Id desc`;
 
@@ -103,7 +104,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
         selectedPage: null, selectedPageRows: [],
         selectedUser: null, selectedUserRows: []
       });
-        } catch (e: any) {
+    } catch (e: any) {
       this.setState({ loading: false, error: e?.message || 'שגיאה בשליפת הנתונים' });
     }
   }
@@ -131,8 +132,8 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       selectedPageRows: []
     });
   };
-  
-  
+
+
   private async fetchAll<T = any>(url: string): Promise<T[]> {
     const all: T[] = [];
     let next: string | null = url;
@@ -156,15 +157,35 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   private aggregateByPage(items: RawItem[]): PageAgg[] {
-    const map = new Map<string, number>();
+    // map עם total + סוג דף
+    const map = new Map<string, { total: number; pageType?: string }>();
+
     for (const it of items) {
       const page = it.Title || 'ללא שם';
-      map.set(page, (map.get(page) || 0) + 1); // כל רשומה = כניסה אחת
+      const pt = (it as any).PageType as string | undefined;
+
+      if (!map.has(page)) {
+        map.set(page, { total: 0, pageType: pt });
+      }
+
+      const entry = map.get(page)!;
+      entry.total += 1;
+
+      // אם עדיין אין סוג ושדה PageType קיים – נעדכן
+      if (!entry.pageType && pt) {
+        entry.pageType = pt;
+      }
     }
+
     return Array.from(map.entries())
-      .map(([page, total]) => ({ page, total }))
+      .map(([page, info]) => ({
+        page,
+        total: info.total,
+        pageType: info.pageType
+      }))
       .sort((a, b) => b.total - a.total || a.page.localeCompare(b.page, 'he'));
   }
+
 
   private aggregateByUser(items: RawItem[]): UserAgg[] {
     const map = new Map<string, number>();
@@ -200,14 +221,14 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   private onChangeTo = (e: React.ChangeEvent<HTMLInputElement>) =>
     this.setState({ dateTo: e.target.value });
 
- 
-private onRefresh = () =>
-  this.setState({
-    selectedPage: null,
-    selectedPageRows: [],
-    selectedUser: null,
-    selectedUserRows: []
-  }, () => this.loadData());
+
+  private onRefresh = () =>
+    this.setState({
+      selectedPage: null,
+      selectedPageRows: [],
+      selectedUser: null,
+      selectedUserRows: []
+    }, () => this.loadData());
 
   private onClickPage = (page: string) =>
     this.setState({ selectedPage: page, selectedPageRows: this.buildDetailsForPage(page) });
@@ -223,17 +244,21 @@ private onRefresh = () =>
         </select>
 
         <label>מתאריך:&nbsp;
-          <input className={styles.date} type="date" value={dateFrom || ''} onChange={this.onChangeFrom} disabled={loading}/>
+          <input className={styles.date} type="date" value={dateFrom || ''} onChange={this.onChangeFrom} disabled={loading} />
         </label>
         <label>עד תאריך:&nbsp;
-          <input className={styles.date} type="date" value={dateTo || ''} onChange={this.onChangeTo} disabled={loading}/>
+          <input className={styles.date} type="date" value={dateTo || ''} onChange={this.onChangeTo} disabled={loading} />
         </label>
 
-        <button onClick={this.onRefresh} disabled={loading}
-          style={{padding:'6px 10px', border:'1px solid #d0d7de', borderRadius:6, background:'#f6f8fa', cursor:'pointer'}}>
-          רענון
-        </button>
-       
+        <button
+  className={styles.button}
+  onClick={this.onRefresh}
+  disabled={loading}
+>
+  רענון
+</button>
+
+
       </div>
     );
   }
@@ -245,21 +270,31 @@ private onRefresh = () =>
         <thead>
           <tr>
             <th>דף</th>
-            <th style={{width:120}}>סה"כ כניסות</th>
+            <th style={{ width: 100 }}>סוג</th> {/* ← חדש */}
+            <th style={{ width: 120 }}>סה"כ כניסות</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={2}>טוען נתונים…</td></tr>
+            <tr><td colSpan={3}>טוען נתונים…</td></tr>
           ) : pageAgg.length === 0 ? (
-            <tr><td colSpan={2}>לא נמצאו נתונים בטווח הנבחר</td></tr>
+            <tr><td colSpan={3}>לא נמצאו נתונים בטווח הנבחר</td></tr>
           ) : pageAgg.map(r => (
             <tr key={r.page}>
-              <td><span className={styles.linkLike} onClick={() => this.onClickPage(r.page)}>{r.page}</span></td>
+              <td>
+                <span
+                  className={styles.linkLike}
+                  onClick={() => this.onClickPage(r.page)}
+                >
+                  {r.page}
+                </span>
+              </td>
+              <td>{r.pageType || '-'}</td>  {/* ← "קורס" / "תחום" */}
               <td><span className={styles.badge}>{r.total}</span></td>
             </tr>
           ))}
         </tbody>
+
       </table>
     );
   }
@@ -270,7 +305,7 @@ private onRefresh = () =>
         <thead>
           <tr>
             <th>משתמש</th>
-            <th style={{width:120}}>סה"כ כניסות</th>
+            <th style={{ width: 120 }}>סה"כ כניסות</th>
           </tr>
         </thead>
         <tbody>
@@ -296,29 +331,30 @@ private onRefresh = () =>
       </table>
     );
   }
-  
+
   private renderDetailsPanel() {
     const { selectedPage, selectedPageRows, selectedUser, selectedUserRows } = this.state;
-  
+
     if (!selectedPage && !selectedUser) return null;
-  
+
     // כפתור סגירה משותף
     const closeBtn = (
       <button
+        className={styles.button}
         onClick={() => this.setState({
           selectedPage: null, selectedPageRows: [],
           selectedUser: null, selectedUserRows: []
         })}
-        style={{padding:'4px 8px', border:'1px solid #d0d7de', borderRadius:6, background:'#fff', cursor:'pointer'}}
       >
         סגור
       </button>
     );
-  
+    
+
     if (selectedPage) {
       return (
         <div className={styles.panel} role="region" aria-label="פירוט לפי דף">
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h3>פירוט כניסות לדף: {selectedPage}</h3>
             {closeBtn}
           </div>
@@ -340,11 +376,11 @@ private onRefresh = () =>
         </div>
       );
     }
-  
+
     // selectedUser
     return (
       <div className={styles.panel} role="region" aria-label="פירוט לפי משתמש">
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3>כניסות של משתמש: {selectedUser}</h3>
           {closeBtn}
         </div>
@@ -352,7 +388,7 @@ private onRefresh = () =>
           <thead>
             <tr>
               <th>דף</th>
-              <th style={{width:120}}>סה"כ כניסות</th>
+              <th style={{ width: 120 }}>סה"כ כניסות</th>
             </tr>
           </thead>
           <tbody>
@@ -369,14 +405,14 @@ private onRefresh = () =>
       </div>
     );
   }
-  
+
   public render(): React.ReactElement<IBezeqStatisticsProps> {
     const { report, error } = this.state;
     return (
       <section className={styles.bezeqStatistics}>
         <div className={styles.header}>דו"חות שימוש</div>
         {this.renderToolbar()}
-        {error && <div style={{color:'#d00', marginBottom:12}}>שגיאה: {error}</div>}
+        {error && <div style={{ color: '#d00', marginBottom: 12 }}>שגיאה: {error}</div>}
         <div className={styles.split}>
           <div>{report === 'byPage' ? this.renderByPage() : this.renderByUser()}</div>
           <div>{this.renderDetailsPanel()}</div>
