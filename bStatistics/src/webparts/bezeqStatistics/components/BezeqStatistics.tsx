@@ -14,7 +14,7 @@ type RawItem = {
   PageType?: string;
 };
 
-type PageAgg = { page: string; total: number; pageType?: string };
+type PageAgg = { page: string; total: number; pageType?: string; uniqueUsers: number };
 type UserAgg = { userKey: string; total: number };
 
 interface State {
@@ -157,35 +157,37 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   private aggregateByPage(items: RawItem[]): PageAgg[] {
-    // map עם total + סוג דף
-    const map = new Map<string, { total: number; pageType?: string }>();
-
+    const map = new Map<string, { total: number; pageType?: string; users: Set<string> }>();
+  
     for (const it of items) {
       const page = it.Title || 'ללא שם';
       const pt = (it as any).PageType as string | undefined;
-
+      const userKey = this.getUserKey(it);
+  
       if (!map.has(page)) {
-        map.set(page, { total: 0, pageType: pt });
+        map.set(page, { total: 0, pageType: pt, users: new Set<string>() });
       }
-
+  
       const entry = map.get(page)!;
       entry.total += 1;
-
+      entry.users.add(userKey); // לשימוש בספירת משתמשים ייחודיים
+  
       // אם עדיין אין סוג ושדה PageType קיים – נעדכן
       if (!entry.pageType && pt) {
         entry.pageType = pt;
       }
     }
-
+  
     return Array.from(map.entries())
       .map(([page, info]) => ({
         page,
         total: info.total,
-        pageType: info.pageType
+        pageType: info.pageType,
+        uniqueUsers: info.users.size
       }))
       .sort((a, b) => b.total - a.total || a.page.localeCompare(b.page, 'he'));
   }
-
+  
 
   private aggregateByUser(items: RawItem[]): UserAgg[] {
     const map = new Map<string, number>();
@@ -230,8 +232,25 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       selectedUserRows: []
     }, () => this.loadData());
 
-  private onClickPage = (page: string) =>
-    this.setState({ selectedPage: page, selectedPageRows: this.buildDetailsForPage(page) });
+    private onClickPage = (page: string) =>
+      this.setState(prev => {
+        if (prev.selectedPage === page) {
+          return {
+            ...prev,
+            selectedPage: null,
+            selectedPageRows: []
+          };
+        }
+    
+        return {
+          ...prev,
+          selectedPage: page,
+          selectedPageRows: this.buildDetailsForPage(page),
+          selectedUser: null,
+          selectedUserRows: []
+        };
+      });
+    
 
   // -------- Renders --------
   private renderToolbar() {
@@ -264,40 +283,70 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   private renderByPage() {
-    const { pageAgg, loading } = this.state;
+    const { pageAgg, loading, selectedPage, selectedPageRows } = this.state;
+  
     return (
       <table className={styles.table} aria-label="כניסות לפי דף">
         <thead>
           <tr>
             <th>דף</th>
-            <th style={{ width: 100 }}>סוג</th> {/* ← חדש */}
+            <th style={{ width: 100 }}>סוג</th>
             <th style={{ width: 120 }}>סה"כ כניסות</th>
+            <th style={{ width: 140 }}>משתמשים ייחודיים</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={3}>טוען נתונים…</td></tr>
+            <tr><td colSpan={4}>טוען נתונים…</td></tr>
           ) : pageAgg.length === 0 ? (
-            <tr><td colSpan={3}>לא נמצאו נתונים בטווח הנבחר</td></tr>
+            <tr><td colSpan={4}>לא נמצאו נתונים בטווח הנבחר</td></tr>
           ) : pageAgg.map(r => (
-            <tr key={r.page}>
-              <td>
-                <span
-                  className={styles.linkLike}
-                  onClick={() => this.onClickPage(r.page)}
-                >
-                  {r.page}
-                </span>
-              </td>
-              <td>{r.pageType || '-'}</td>  {/* ← "קורס" / "תחום" */}
+            <React.Fragment key={r.page}>
+            <tr
+              className={styles.clickableRow}
+              onClick={() => this.onClickPage(r.page)}
+            >
+              <td>{r.page}</td>
+              <td>{r.pageType || '-'}</td>
               <td><span className={styles.badge}>{r.total}</span></td>
+              <td><span className={styles.badge}>{r.uniqueUsers}</span></td>
             </tr>
+          
+            {selectedPage === r.page && (
+              <tr>
+                <td colSpan={4}>
+                  <div className={styles.panel}>
+                    <h3>פירוט כניסות לדף: {r.page}</h3>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>משתמש</th>
+                          <th style={{ width: 180 }}>תאריך</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedPageRows.length === 0 ? (
+                          <tr><td colSpan={2}>אין נתונים לדף זה</td></tr>
+                        ) : selectedPageRows.map((row, i) => (
+                          <tr key={i}>
+                            <td>{row.user}</td>
+                            <td>{new Date(row.date).toLocaleString('he-IL')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
+          
           ))}
         </tbody>
-
       </table>
     );
   }
+  
   private renderByUser() {
     const { userAgg, loading } = this.state;
     return (
@@ -333,51 +382,22 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   private renderDetailsPanel() {
-    const { selectedPage, selectedPageRows, selectedUser, selectedUserRows } = this.state;
-
-    if (!selectedPage && !selectedUser) return null;
-
-    // כפתור סגירה משותף
+    const { selectedUser, selectedUserRows } = this.state;
+  
+    if (!selectedUser) return null;
+  
     const closeBtn = (
       <button
         className={styles.button}
         onClick={() => this.setState({
-          selectedPage: null, selectedPageRows: [],
-          selectedUser: null, selectedUserRows: []
+          selectedUser: null,
+          selectedUserRows: []
         })}
       >
         סגור
       </button>
     );
-    
-
-    if (selectedPage) {
-      return (
-        <div className={styles.panel} role="region" aria-label="פירוט לפי דף">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3>פירוט כניסות לדף: {selectedPage}</h3>
-            {closeBtn}
-          </div>
-          <table className={styles.table}>
-            <thead>
-              <tr><th>משתמש</th><th>תאריך</th></tr>
-            </thead>
-            <tbody>
-              {selectedPageRows.length === 0 ? (
-                <tr><td colSpan={2}>אין נתונים לדף זה בטווח הנבחר</td></tr>
-              ) : selectedPageRows.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.user}</td>
-                  <td>{new Date(r.date).toLocaleString('he-IL')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-
-    // selectedUser
+  
     return (
       <div className={styles.panel} role="region" aria-label="פירוט לפי משתמש">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -405,7 +425,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       </div>
     );
   }
-
+  
   public render(): React.ReactElement<IBezeqStatisticsProps> {
     const { report, error } = this.state;
     return (

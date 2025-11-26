@@ -14,7 +14,7 @@
 .bezeqStatistics {
   direction: rtl;
   text-align: right;
-  color: #e5e7eb; // טקסט בהיר על רקע שחור
+  color: #e5e7eb; 
   background: transparent;
   font-size: 14px;
 
@@ -22,13 +22,12 @@
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 12px;
-    color: #60a5fa; // כחול
+    color: #60a5fa; 
     padding-bottom: 4px;
     border-bottom: 1px solid #1f2937;
   }
 }
 
-/* ===== Toolbar ===== */
 
 .toolbar {
   display: flex;
@@ -38,8 +37,8 @@
   margin-bottom: 16px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: #020617;        // שחור־כחול
-  border: 1px solid #1e293b;  // מסגרת עדינה
+  background: #020617;        
+  border: 1px solid #1e293b;  
 }
 
 .select,
@@ -59,7 +58,6 @@
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
 }
 
-/* כפתורים משותפים (רענון / סגור) */
 
 .button {
   padding: 6px 12px;
@@ -83,12 +81,11 @@
   cursor: default;
 }
 
-/* ===== Tables ===== */
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  background: #020617; // “כרטיס” כהה
+  background: #020617; 
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.35);
   border-radius: 10px;
   overflow: hidden;
@@ -112,10 +109,12 @@
 }
 
 .table tbody tr:hover {
-  background: rgba(30, 64, 175, 0.35); // כחול כהה שקוף
+  background: rgba(30, 64, 175, 0.35); 
 }
 
-/* לינק “לחיץ” לתצוגת Drilldown */
+.table tr > td > .panel {
+  margin-top: 8px;
+}
 
 .linkLike {
   color: #60a5fa;
@@ -128,7 +127,6 @@
   color: #93c5fd;
 }
 
-/* Badge לכמות כניסות */
 
 .badge {
   display: inline-block;
@@ -143,14 +141,12 @@
   font-size: 12px;
 }
 
-/* טקסט הסבר */
 
 .note {
   color: #9ca3af;
   font-size: 12px;
 }
 
-/* ===== Layout split ===== */
 
 .split {
   display: grid;
@@ -164,7 +160,6 @@
   }
 }
 
-/* ===== Panel (פירוט לפי דף / משתמש) ===== */
 
 .panel {
   background: #020617;
@@ -177,5 +172,18 @@
 .panel h3 {
   margin: 0 0 8px 0;
   font-size: 15px;
+  color: #e5e7eb;
+}
+
+.clickableRow {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.clickableRow:hover {
+  background: rgba(30, 64, 175, 0.45) !important;
+}
+
+.clickableRow td {
   color: #e5e7eb;
 }
