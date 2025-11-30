@@ -327,6 +327,106 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     });
   };
 
+    /** ייצוא טבלת "כניסות לפי דף" ל-CSV (אקסל) */
+    private exportPageAggToCsv = () => {
+      const { pageAgg, dateFrom, dateTo } = this.state;
+  
+      if (!pageAgg || pageAgg.length === 0) {
+        alert('אין נתונים לייצוא בטווח הנבחר.');
+        return;
+      }
+  
+      // כותרות כמו בטבלה
+      const header = ['דף', 'סוג', 'סה"כ כניסות', 'משתמשים ייחודיים'];
+  
+      const rows = pageAgg.map(p => [
+        p.page ?? '',
+        p.pageType ?? '',
+        p.total.toString(),
+        p.uniqueUsers.toString()
+      ]);
+  
+      const escapeCsv = (value: string) => {
+        if (value == null) return '';
+        const mustQuote = /[",\n]/.test(value);
+        let v = value.replace(/"/g, '""');
+        return mustQuote ? `"${v}"` : v;
+      };
+  
+      const allRows = [header, ...rows]
+        .map(r => r.map(escapeCsv).join(','))
+        .join('\r\n');
+  
+      // BOM בשביל עברית באקסל
+      const csvContent = '\uFEFF' + allRows;
+  
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+  
+      const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
+      const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
+      const fileName = `BezeqStatistics_Pages_${fromPart}_${toPart}.csv`;
+  
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+  
+    /** ייצוא טבלת "כניסות לפי משתמש" ל-CSV (אקסל) */
+    private exportUserAggToCsv = () => {
+      const { userAgg, dateFrom, dateTo } = this.state;
+  
+      if (!userAgg || userAgg.length === 0) {
+        alert('אין נתונים לייצוא בטווח הנבחר.');
+        return;
+      }
+  
+      // כותרות הטבלה בדיוק כמו במסך
+      const header = ['משתמש', 'סה"כ כניסות'];
+  
+      // שורות
+      const rows = userAgg.map(u => [
+        u.userKey ?? '',
+        u.total.toString()
+      ]);
+  
+      // פונקציה קטנה לבריחה של ערכים ל-CSV
+      const escapeCsv = (value: string) => {
+        if (value == null) return '';
+        const mustQuote = /[",\n]/.test(value);
+        let v = value.replace(/"/g, '""');
+        return mustQuote ? `"${v}"` : v;
+      };
+  
+      const allRows = [header, ...rows]
+        .map(r => r.map(escapeCsv).join(','))
+        .join('\r\n');
+  
+      // הוספת BOM כדי שאקסל יזהה עברית (UTF-8)
+      const csvContent = '\uFEFF' + allRows;
+  
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+  
+      // שם קובץ נחמד עם טווח התאריכים
+      const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
+      const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
+      const fileName = `BezeqStatistics_Users_${fromPart}_${toPart}.csv`;
+  
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+  
+
   // -------- Charts (line charts + tooltip) --------
   private renderPageCharts(stats: Array<{ date: string; total: number; uniqueUsers: number }>) {
     const { hoveredPoint } = this.state;
@@ -584,108 +684,139 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
 
   private renderByPage() {
     const { pageAgg, loading, selectedPage, selectedPageRows, selectedPageDailyStats } = this.state;
+    const hasData = !loading && pageAgg.length > 0;
 
     return (
-      <table className={styles.table} aria-label="כניסות לפי דף">
-        <thead>
-          <tr>
-            <th>דף</th>
-            <th style={{ width: 100 }}>סוג</th>
-            <th style={{ width: 120 }}>סה"כ כניסות</th>
-            <th style={{ width: 140 }}>משתמשים ייחודיים</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan={4}>טוען נתונים…</td></tr>
-          ) : pageAgg.length === 0 ? (
-            <tr><td colSpan={4}>לא נמצאו נתונים בטווח הנבחר</td></tr>
-          ) : pageAgg.map(r => (
-            <React.Fragment key={r.page}>
-              <tr
-                className={styles.clickableRow}
-                onClick={() => this.onClickPage(r.page)}
-              >
-                <td>{r.page}</td>
-                <td>{r.pageType || '-'}</td>
-                <td><span className={styles.badge}>{r.total}</span></td>
-                <td><span className={styles.badge}>{r.uniqueUsers}</span></td>
-              </tr>
+      <div>
+        <div className={styles.tableActionsRow}>
+          <button
+            className={styles.iconButton}
+            type="button"
+            onClick={this.exportPageAggToCsv}
+            disabled={!hasData}
+            title='ייצוא הדו"ח לפי דף לאקסל'
+          >
+            ⬇ ייצוא לאקסל
+          </button>
+        </div>
 
-              {selectedPage === r.page && (
-                <tr>
-                  <td colSpan={4}>
-                    <div
-                      className={styles.panel}
-                      role="region"
-                      aria-label={`פירוט כניסות לדף ${r.page}`}
-                    >
-                      {/* גרפים – על הטווח שנבחר */}
-                      {this.renderPageCharts(selectedPageDailyStats)}
-
-                      {/* טבלת פירוט משתמשים */}
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>משתמש</th>
-                            <th style={{ width: 180 }}>תאריך</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedPageRows.length === 0 ? (
-                            <tr><td colSpan={2}>אין נתונים לדף זה בטווח הנבחר</td></tr>
-                          ) : selectedPageRows.map((row, i) => (
-                            <tr key={i}>
-                              <td>{row.user}</td>
-                              <td>{new Date(row.date).toLocaleString('he-IL')}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </td>
+        <table className={styles.table} aria-label="כניסות לפי דף">
+          <thead>
+            <tr>
+              <th>דף</th>
+              <th style={{ width: 100 }}>סוג</th>
+              <th style={{ width: 120 }}>סה"כ כניסות</th>
+              <th style={{ width: 140 }}>משתמשים ייחודיים</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={4}>טוען נתונים…</td></tr>
+            ) : pageAgg.length === 0 ? (
+              <tr><td colSpan={4}>לא נמצאו נתונים בטווח הנבחר</td></tr>
+            ) : pageAgg.map(r => (
+              <React.Fragment key={r.page}>
+                <tr
+                  className={styles.clickableRow}
+                  onClick={() => this.onClickPage(r.page)}
+                >
+                  <td>{r.page}</td>
+                  <td>{r.pageType || '-'}</td>
+                  <td><span className={styles.badge}>{r.total}</span></td>
+                  <td><span className={styles.badge}>{r.uniqueUsers}</span></td>
                 </tr>
-              )}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+
+                {selectedPage === r.page && (
+                  <tr>
+                    <td colSpan={4}>
+                      <div
+                        className={styles.panel}
+                        role="region"
+                        aria-label={`פירוט כניסות לדף ${r.page}`}
+                      >
+                        {this.renderPageCharts(selectedPageDailyStats)}
+
+                        <table className={styles.table}>
+                          <thead>
+                            <tr>
+                              <th>משתמש</th>
+                              <th style={{ width: 180 }}>תאריך</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedPageRows.length === 0 ? (
+                              <tr><td colSpan={2}>אין נתונים לדף זה בטווח הנבחר</td></tr>
+                            ) : selectedPageRows.map((row, i) => (
+                              <tr key={i}>
+                                <td>{row.user}</td>
+                                <td>{new Date(row.date).toLocaleString('he-IL')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
+
 
   private renderByUser() {
     const { userAgg, loading } = this.state;
+    const hasData = !loading && userAgg.length > 0;
+
     return (
-      <table className={styles.table} aria-label="כניסות לפי משתמש">
-        <thead>
-          <tr>
-            <th>משתמש</th>
-            <th style={{ width: 120 }}>סה"כ כניסות</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan={2}>טוען נתונים…</td></tr>
-          ) : userAgg.length === 0 ? (
-            <tr><td colSpan={2}>לא נמצאו נתונים בטווח הנבחר</td></tr>
-          ) : userAgg.map(u => (
-            <tr key={u.userKey}>
-              <td>
-                <span
-                  className={styles.linkLike}
-                  title="לחץ להצגת פירוט לפי דפים"
-                  onClick={() => this.onClickUser(u.userKey)}
-                >
-                  {u.userKey}
-                </span>
-              </td>
-              <td><span className={styles.badge}>{u.total}</span></td>
+      <div>
+        <div className={styles.tableActionsRow}>
+          <button
+            className={styles.iconButton}
+            type="button"
+            onClick={this.exportUserAggToCsv}
+            disabled={!hasData}
+            title="ייצוא הטבלה לאקסל"
+          >
+            ⬇ ייצוא לאקסל
+          </button>
+        </div>
+
+        <table className={styles.table} aria-label="כניסות לפי משתמש">
+          <thead>
+            <tr>
+              <th>משתמש</th>
+              <th style={{ width: 120 }}>סה"כ כניסות</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={2}>טוען נתונים…</td></tr>
+            ) : userAgg.length === 0 ? (
+              <tr><td colSpan={2}>לא נמצאו נתונים בטווח הנבחר</td></tr>
+            ) : userAgg.map(u => (
+              <tr key={u.userKey}>
+                <td>
+                  <span
+                    className={styles.linkLike}
+                    title="לחץ להצגת פירוט לפי דפים"
+                    onClick={() => this.onClickUser(u.userKey)}
+                  >
+                    {u.userKey}
+                  </span>
+                </td>
+                <td><span className={styles.badge}>{u.total}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
+
 
   private renderDetailsPanel() {
     const { selectedUser, selectedUserRows } = this.state;
