@@ -8,7 +8,6 @@ import { getSP } from "../../PNPConfig/pnpjsConfig";
 import { Item, Items } from '@pnp/sp/items';
 import { PeoplePicker, PrincipalType } from "@pnp/spfx-controls-react/lib/PeoplePicker";
 
-
 //Import font Awesome
 import { SPComponentLoader } from '@microsoft/sp-loader';
 
@@ -34,7 +33,6 @@ export interface ICoursesSectionState {
     commentsList: { author: string; text: string }[];
     showPeoplePickerPopup: boolean;
     selectedUsers: any[];
-
 }
 
 export default class CoursesSection extends React.Component<ICoursesSectionProps, ICoursesSectionState, {}> {
@@ -44,7 +42,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
 
     constructor(props: ICoursesSectionProps) {
         super(props);
-        // set initial state
         this.state = {
             items: [],
             itemsPhotos: [],
@@ -65,13 +62,10 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         this._sp = getSP();
         this._Utilities = new Utilities();
 
-        //Add Font Awesome
         SPComponentLoader.loadCss('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
-        //this.handleCallShowHideModal = this.handleCallShowHideModal.bind(this);
         this._getItems();
     }
 
-    // Add new hover functionality methods
     private closeIt = (x: string): void => {
         const y = "d" + x;
         const z = "e" + x;
@@ -109,17 +103,12 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         this.closeIt(i.toString());
     };
 
-
     private async _getItems() {
         const items: any[] = await this._Utilities._getCoursesBySectionID();
-        // debugger;   
         this.setState({ items });
         const sectionsItems: ICourseSections[] = await this._Utilities._getAllCourseSections();
         this.setState({ sectionsItems });
         console.table(sectionsItems);
-
-        // const _PhotoType = 'תמונה קטנה';
-        // const itemsPhotos:ICoursesPhotos[] = await this._Utilities._getAllCoursesSmallBigPhoto(_PhotoType);
 
         const itemsPhotos: ICoursesPhotos[] = await this._Utilities._getAllCoursesSmallPhoto();
         this.setState({ itemsPhotos });
@@ -145,8 +134,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
 
         this.setState({ commentCounts });
-
-
     }
 
     private _getHtml(_ItemID: any) {
@@ -161,10 +148,78 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
     }
 
     private _goToOneCourse(_ItemID: any) {
-        // debugger;
         let __OneCourseUrl = "/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=";
         __OneCourseUrl += _ItemID;
         window.location.href = __OneCourseUrl;
+    }
+
+    private extractUserIDFromClaims(login: string): string | null {
+        if (!login) return null;
+        const match = login.match(/(\d{7,9})/);
+        return match ? match[1] : null;
+    }
+
+    private extractUserIDFromUpn(login: string): string | null {
+        if (!login) return null;
+        const parts = login.split('|');
+        const lastPart = parts[parts.length - 1] || login;
+        const upn = lastPart.split('@')[0];
+        const match = upn.match(/^(\d{7,9})$/);
+        return match ? match[1] : null;
+    }
+
+    private async logCourseClick(course: any, targetUrl: string): Promise<void> {
+        try {
+          const currentUser: any = await this._sp.web.currentUser();
+          const userName: string = currentUser.Title || '';
+          const loginName: string = currentUser.LoginName || '';
+      
+          const tzFromClaims = this.extractUserIDFromClaims(loginName);
+          const teudatZehut = tzFromClaims || this.extractUserIDFromUpn(loginName);
+      
+          let absoluteUrl: string;
+          if (targetUrl && (targetUrl.indexOf('http://') === 0 || targetUrl.indexOf('https://') === 0)) {
+            absoluteUrl = targetUrl;
+          } else {
+            absoluteUrl = window.location.origin + targetUrl;
+          }
+      
+          const itemData = {
+            Title: course.Title,
+            PageType: 'קורס',
+            UserNameText: userName,
+            Link: absoluteUrl,
+            PageID: String(course.ID),
+            Tas: teudatZehut || ''
+          };
+      
+          await this._sp.web.lists.getByTitle('BezeqStatistics').items.add(itemData);
+        } catch (error) {
+          console.error('❌ Error logging course click:', error);
+        }
+      }
+      
+    private async handleCourseClick(Course: any): Promise<void> {
+        let targetUrl: string;
+
+        if (Course.otherLink && Course.otherLink.trim() !== '') {
+            targetUrl = Course.otherLink;
+        } else {
+            targetUrl = `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${Course.ID}`;
+        }
+
+        const lower = targetUrl.toLowerCase();
+
+        //get click if it's not course page
+        if (lower.indexOf('onecourse.aspx') === -1 && lower.indexOf('courses.aspx') === -1) {
+            try {
+                await this.logCourseClick(Course, targetUrl);
+            } catch (e) {
+                console.error('Failed to log course click', e);
+            }
+        }
+
+        window.location.href = targetUrl;
     }
 
     //Like / Unlike Function
@@ -184,7 +239,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 return;
             }
 
-            // Check if user already liked this item
             const existingLikes = await this._sp.web.lists
                 .getByTitle("Likes")
                 .items.filter(
@@ -195,12 +249,10 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 )();
 
             if (existingLikes.length > 0) {
-                // User already liked - remove the like
                 const likeId = existingLikes[0].Id;
                 await this._sp.web.lists.getByTitle("Likes").items.getById(likeId).delete();
                 console.log(`❌ Like removed for ${courseTitle}`);
 
-                // Update count immediately
                 const newCount = await this._getLikesCount(courseId, sectionId);
                 this.setState(prev => ({
                     likeCounts: { ...prev.likeCounts, [courseId ?? sectionId!]: newCount }
@@ -209,17 +261,15 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 return;
             }
 
-            // Add new like (People Picker field)
             await this._sp.web.lists.getByTitle("Likes").items.add({
                 Title: courseTitle,
                 courseID: courseId,
                 sectionID: sectionId,
-                likedById: currentUser.Id // People Picker reference
+                likedById: currentUser.Id
             });
 
             console.log(`✅ Like saved for ${courseTitle}`);
 
-            // Update count immediately
             const newCount = await this._getLikesCount(courseId, sectionId);
             this.setState(prev => ({
                 likeCounts: { ...prev.likeCounts, [courseId ?? sectionId!]: newCount }
@@ -230,8 +280,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-    // Get total likes count
     private async _getLikesCount(
         courseId: number | null,
         sectionId: number | null
@@ -254,7 +302,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-    // Get total comments count
     private async _getCommentsCount(
         courseId: number | null,
         sectionId: number | null
@@ -263,10 +310,8 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
             let filter = "";
 
             if (courseId !== null) {
-                // count comments linked to this course
                 filter = `(courseID eq ${courseId} or sectionID eq ${courseId})`;
             } else if (sectionId !== null) {
-                // count comments linked to this section
                 filter = `(sectionID eq ${sectionId} or courseID eq ${sectionId})`;
             } else {
                 console.warn("⚠️ No courseId or sectionId provided — cannot fetch comments.");
@@ -285,10 +330,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-
-
-    // Fetch all users who liked a course or section
     private async _getLikedUsers(courseId: number | null, sectionId: number | null): Promise<void> {
         try {
             const filter =
@@ -315,7 +356,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-    // Fetch all comments for a course or section
     private async _getCommentsList(courseId: number | null, sectionId: number | null): Promise<void> {
         try {
             let filter = "";
@@ -349,9 +389,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-
-    // Close popup
     private _closeLikesPopup = (): void => {
         this.setState({ showLikesPopup: false, likedUsers: [] });
     };
@@ -360,8 +397,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         this.setState({ showCommentsPopup: false, commentsList: [] });
     };
 
-
-    // Open Comment Popup for a specific course or section
     private _openCommentPopup = (courseId: number | null, sectionId: number | null): void => {
         this.setState({
             showCommentPopup: true,
@@ -370,17 +405,14 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         });
     };
 
-    // Close Comment Popup
     private _closeCommentPopup = (): void => {
         this.setState({ showCommentPopup: false, commentText: "" });
     };
 
-    // Handle Text Input
     private _handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
         this.setState({ commentText: e.target.value });
     };
 
-    // Save Comment Function
     private async _handleSendComment(
         courseId: number | null,
         sectionId: number | null
@@ -401,17 +433,15 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 return;
             }
 
-            // Add comment to SharePoint list
             await this._sp.web.lists.getByTitle("Comments").items.add({
                 comment: this.state.commentText,
-                commentedById: currentUser.Id, // People Picker field
+                commentedById: currentUser.Id,
                 courseID: courseId,
                 sectionID: sectionId
             });
 
             console.log(`Comment saved successfully for ${isCourseComment ? "course" : "section"}!`);
 
-            // Update the comment count immediately
             const newCount = await this._getCommentsCount(courseId, sectionId);
             this.setState(prev => ({
                 commentCounts: { ...prev.commentCounts, [courseId ?? sectionId!]: newCount },
@@ -433,7 +463,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         return (
             <>
                 <div className={styles.topSeperator}>
-                    {/* <div style={{ margin: "0px auto", width: "1520px" }}> */}
                     <div className={styles.topSeperatorContainer}>
                         <div className={styles.right_courses}>
                             {_sectionsItems
@@ -463,9 +492,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                         id={`c${i + 1}`}
                                         className={`${styles.oneCourse} ${Course.isSoldOut ? styles.soldOut : ''}`}
                                         style={{ backgroundImage: `url('${this._getHtml(Course.ID)}')` }}
-                                        onClick={() => Course.otherLink ? window.location.href = Course.otherLink : this._goToOneCourse(Course.ID)}
-                                    // onMouseOver={() => this.handleMouseOver(i + 1)}
-                                    // onMouseLeave={() => this.handleMouseLeave(i + 1)}
+                                        onClick={() => this.handleCourseClick(Course)}
                                     >
                                         {Course.isSoldOut && (
                                             <div className={styles.soldOutBanner}></div>
@@ -481,8 +508,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                             style={{ float: 'left', width: '100%', color: 'white', textAlign: 'center' }}
                                             dangerouslySetInnerHTML={{ __html: Course.innerText1 }}
                                         >
-                                            {/* {Course.innerText1}<br />{Course.innerText2}  */}
-
                                         </div>
 
                                         <div id={`f${i + 1}`} className={styles.smallButton}>
@@ -492,7 +517,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                         className={`${styles.iconWrapper} ${styles.likeButton}`}
                                                         title="אהבתי"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // prevents navigating to the course
+                                                            e.stopPropagation();
                                                             this._handleLikeClick(Course.ID, Course.Title, null);
                                                         }}
                                                     >
@@ -531,10 +556,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     >
                                                         {this.state.commentCounts[Course.ID] ?? 0}
                                                     </span>
-
                                                 </div>
-
-
 
                                                 <div className={styles.actionItem}>
                                                     <span
@@ -551,7 +573,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                             </div>
                                         </div>
                                     </div>
-
                                 ))
                         )}
 
@@ -566,8 +587,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                         className={styles.oneCourse}
                                         style={{ backgroundImage: `url('${Course.theImage.Url}')` }}
                                         onClick={() => window.location.href = '/sites/Bmaster/SitePages/Courses.aspx?SectionID=' + Course.ID}
-                                    // onMouseOver={() => this.handleMouseOver(i + 1)}
-                                    // onMouseLeave={() => this.handleMouseLeave(i + 1)}
                                     >
                                         <div id={`d${i + 1}`} className={styles.courseName}>
                                             {Course.Title}
@@ -587,7 +606,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                         className={`${styles.iconWrapper} ${styles.likeButton}`}
                                                         title="אהבתי"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // prevents navigating to the course
+                                                            e.stopPropagation();
                                                             this._handleLikeClick(null, Course.Title, Course.ID);
                                                         }}
                                                     >
@@ -603,7 +622,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     >
                                                         {this.state.likeCounts[Course.ID] ?? 0}
                                                     </span>
-
                                                 </div>
 
                                                 <div className={styles.actionItem}>
@@ -629,8 +647,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     </span>
                                                 </div>
 
-
-
                                                 <div className={styles.actionItem}>
                                                     <span
                                                         className={`${styles.iconWrapper} ${styles.shareButton}`}
@@ -648,6 +664,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                     </div>
                                 ))
                         )}
+
                         {this.state.showLikesPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -669,6 +686,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                 </div>
                             </div>
                         )}
+
                         {this.state.showCommentPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -693,7 +711,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                             >
                                                 שלח
                                             </button>
-
 
                                             <button className={styles.commentCancelBtn} onClick={this._closeCommentPopup}>
                                                 ביטול
@@ -727,6 +744,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                 </div>
                             </div>
                         )}
+
                         {this.state.showPeoplePickerPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -777,11 +795,9 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                             </div>
                         )}
 
-
                     </div>
                 </div>
             </>
         );
     }
-
 }

@@ -86,7 +86,8 @@ export default class Sections extends React.Component<ICoursesSectionProps, ICou
                             .filter(_item => _item.fieldId === null || _item.fieldId === undefined)
                             .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                             .map((_item, i) =>
-                                <div id={"s" + i} className={styles.oneItem} style={{ backgroundImage: "url('" + _item.theImage.Url + "')" }} onClick={() => window.location.href = '/sites/Bmaster/SitePages/Courses.aspx?SectionID=' + _item.ID}>
+                                <div id={"s" + i} className={styles.oneItem} style={{ backgroundImage: "url('" + _item.theImage.Url + "')" }} 
+                        onClick={() => window.location.href = '/sites/Bmaster/SitePages/Courses.aspx?SectionID=' + _item.ID}>
                                     <div className={styles.title}>{_item.addedText}</div>
                                     <div className={styles.text}>{_item.Title}</div>
                                 </div>
