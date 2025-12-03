@@ -12,10 +12,29 @@ type RawItem = {
   Author?: { Title?: string; Email?: string };
   UserNameText?: string;
   PageType?: string;
+
+  FullName?: string;
+  Division?: string;
+  Department?: string;
+  Unit?: string;
+  ManagementLevel?: string;
+  Tas?: string;
+  SAPResponse?: string;
 };
 
 type PageAgg = { page: string; total: number; pageType?: string; uniqueUsers: number };
-type UserAgg = { userKey: string; total: number };
+type UserAgg = {
+  userKey: string;
+  fullName: string;
+  division: string;
+  department: string;
+  unit: string;
+  managementLevel: string;
+  tas: string;
+  total: number;
+  lastVisit?: string;
+};
+
 
 type HoverSeries = 'total' | 'unique';
 
@@ -40,7 +59,15 @@ interface State {
 
   // Drilldown לפי דף
   selectedPage?: string | null;
-  selectedPageRows: Array<{ user: string; date: string }>;
+  selectedPageRows: Array<{
+    fullName: string;
+    division: string;
+    department: string;
+    unit: string;
+    managementLevel: string;
+    tas: string;
+    date: string;
+  }>;
   selectedPageDailyStats: Array<{ date: string; total: number; uniqueUsers: number }>;
 
   // Drilldown לפי משתמש
@@ -53,13 +80,14 @@ interface State {
 
 const LIST_TITLE = 'BezeqStatistics';
 const USER_TEXT_FIELD = 'UserNameText';
+const STATS_MANAGERS_GROUP_ID = 556;
+
 
 export default class BezeqStatistics extends React.Component<IBezeqStatisticsProps, State> {
 
   constructor(props: IBezeqStatisticsProps) {
     super(props);
 
-    // ברירת מחדל – שבוע אחרון
     const today = new Date();
     const weekAgo = new Date();
     weekAgo.setDate(today.getDate() - 7);
@@ -85,13 +113,105 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     this.loadData();
   }
 
+    // -------- בדיקה אם המשתמש בקבוצת "מנהלי סטטיסטיקה" --------
+    private async isCurrentUserStatsManager(): Promise<boolean> {
+      try {
+        const webUrl = this.props.context.pageContext.web.absoluteUrl;
+        const url = `${webUrl}/_api/web/currentUser?$expand=Groups&$select=Id,Groups/Id`;
+        const resp = await this.props.context.spHttpClient.get(url, SPHttpClient.configurations.v1);
+        if (!resp.ok) {
+          return false;
+        }
+        const json: any = await resp.json();
+        const groups: any[] = json.Groups || [];
+        if (!Array.isArray(groups)) {
+          return false;
+        }
+        return groups.some(g => g.Id === STATS_MANAGERS_GROUP_ID);
+      } catch (e) {
+        console.error('BezeqStatistics: failed to check stats manager group', e);
+        return false;
+      }
+    }
+
+      /**
+   * ניסיון ראשון – פורמט Claims:
+   * i:0#.f|membership|123456789@tenant.com
+   */
+  private extractTeudatZehutFromClaims(claimsName: string | undefined | null): string | null {
+    if (!claimsName) {
+      return null;
+    }
+
+    try {
+      const parts = claimsName.split('|');
+      if (parts.length < 3) {
+        return null;
+      }
+
+      const lastPart = parts[2]; // בד"כ 123456789@tenant.com
+      const atIndex = lastPart.indexOf('@');
+      if (atIndex === -1) {
+        return null;
+      }
+
+      const candidate = lastPart.substring(0, atIndex).trim();
+
+      if (!/^\d{8,9}$/.test(candidate)) {
+        return null;
+      }
+
+      return candidate;
+    } catch (e) {
+      console.warn('BezeqStatistics: Failed to parse Teudat Zehut from claims:', e, claimsName);
+      return null;
+    }
+  }
+
+  /**
+   * ניסיון שני – פורמט UPN פשוט:
+   * 30006781@bezeq.com → לוקחים את מה שלפני ה־@
+   */
+  private extractTeudatZehutFromUpn(upn: string | undefined | null): string | null {
+    if (!upn) {
+      return null;
+    }
+
+    try {
+      const atIndex = upn.indexOf('@');
+      if (atIndex === -1) {
+        return null;
+      }
+
+      const candidate = upn.substring(0, atIndex).trim();
+
+      if (!/^\d{8,9}$/.test(candidate)) {
+        return null;
+      }
+
+      return candidate;
+    } catch (e) {
+      console.warn('BezeqStatistics: Failed to parse Teudat Zehut from UPN:', e, upn);
+      return null;
+    }
+  }
+
+  private getCurrentUserTeudatZehut(): string | null {
+    const loginName = this.props.context.pageContext.user.loginName || '';
+    const tzFromClaims = this.extractTeudatZehutFromClaims(loginName);
+    const tzFromUpn = this.extractTeudatZehutFromUpn(loginName);
+    return tzFromClaims || tzFromUpn;
+  }
+
+  
   // -------- Data loading --------
   private async loadData(): Promise<void> {
     try {
       this.setState({ loading: true, error: null });
 
       const webUrl = this.props.context.pageContext.web.absoluteUrl;
-      const select = `$select=Id,Title,Created,PageType,${USER_TEXT_FIELD},Author/Title`;
+
+      const select = `$select=Id,Title,Created,PageType,${USER_TEXT_FIELD},FullName,Division,Department,Unit,ManagementLevel,Tas,SAPResponse,Author/Title`;
       const expand = `$expand=Author`;
       const orderby = `$orderby=Id desc`;
 
@@ -109,11 +229,32 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
         filter = `$filter=Created le datetime'${toIso}'`;
       }
 
-      const baseUrl = `${webUrl}/_api/web/lists/getbytitle('${encodeURIComponent(LIST_TITLE)}')/items?${select}&${expand}&${orderby}${filter ? '&' + filter : ''}&$top=5000`;
-      const rawItems = await this.fetchAll<RawItem>(baseUrl);
+      const baseUrl =
+      `${webUrl}/_api/web/lists/getbytitle('${encodeURIComponent(LIST_TITLE)}')/items?` +
+      `${select}&${expand}&${orderby}${filter ? '&' + filter : ''}&$top=5000`;
 
-      const pageAgg = this.aggregateByPage(rawItems);
-      const userAgg = this.aggregateByUser(rawItems);
+    const isStatsManager = await this.isCurrentUserStatsManager();
+    const currentTz = this.getCurrentUserTeudatZehut();
+
+    let rawItems = await this.fetchAll<RawItem>(baseUrl);
+
+    // סינון לפי היררכיה ניהולית – רק אם המשתמש אינו מנהל סטטיסטיקה
+    if (!isStatsManager) {
+      if (currentTz && currentTz.trim()) {
+        const tzDigits = currentTz.trim();
+        rawItems = rawItems.filter(it => {
+          const sap = it.SAPResponse || (it as any).SAPResponse;
+          return typeof sap === 'string' && sap.indexOf(tzDigits) !== -1;
+        });
+      } else {
+        // אין לנו ת"ז – במצב כזה עדיף לא להציג כלום
+        rawItems = [];
+      }
+    }
+
+    const pageAgg = this.aggregateByPage(rawItems);
+    const userAgg = this.aggregateByUser(rawItems);
+
 
       this.setState({
         rawItems,
@@ -186,21 +327,85 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   private aggregateByUser(items: RawItem[]): UserAgg[] {
-    const map = new Map<string, number>();
+    const map = new Map<string, {
+      fullName: string;
+      division: string;
+      department: string;
+      unit: string;
+      managementLevel: string;
+      tas: string;
+      total: number;
+      lastVisit?: string;
+    }>();
+  
     for (const it of items) {
-      const userKey = this.getUserKey(it);
-      map.set(userKey, (map.get(userKey) || 0) + 1);
+      const key = this.getUserKey(it);
+      const anyIt = it as any;
+      const created = it.Created;
+  
+      if (!map.has(key)) {
+        map.set(key, {
+          fullName: anyIt.FullName || key,
+          division: anyIt.Division || '',
+          department: anyIt.Department || '',
+          unit: anyIt.Unit || '',
+          managementLevel: anyIt.ManagementLevel || '',
+          tas: anyIt.Tas || '',
+          total: 0,
+          lastVisit: created
+        });
+      } else {
+        const entry = map.get(key)!;
+        entry.total++;
+  
+        // עדכון מועד כניסה אחרון
+        if (!entry.lastVisit || new Date(created) > new Date(entry.lastVisit)) {
+          entry.lastVisit = created;
+        }
+      }
     }
+  
     return Array.from(map.entries())
-      .map(([userKey, total]) => ({ userKey, total }))
-      .sort((a, b) => b.total - a.total || a.userKey.localeCompare(b.userKey, 'he'));
+      .map(([userKey, data]) => ({
+        userKey,
+        ...data
+      }))
+      .sort((a, b) => b.total - a.total || a.fullName.localeCompare(b.fullName, 'he'));
   }
+  
+  
 
   /** פרטי כניסות לדף – על כל הטווח שנבחר */
-  private buildDetailsForPage(page: string): Array<{ user: string; date: string }> {
+  private buildDetailsForPage(page: string): Array<{
+    fullName: string;
+    division: string;
+    department: string;
+    unit: string;
+    managementLevel: string;
+    tas: string;
+    date: string;
+  }> {
     return this.state.rawItems
       .filter(it => (it.Title || 'ללא שם') === page)
-      .map(it => ({ user: this.getUserKey(it), date: it.Created }))
+      .map(it => {
+        const anyIt = it as any;
+        const fullName = (anyIt.FullName as string) || this.getUserKey(it);
+        const division = (anyIt.Division as string) || '';
+        const department = (anyIt.Department as string) || '';
+        const unit = (anyIt.Unit as string) || '';
+        const managementLevel = (anyIt.ManagementLevel as string) || '';
+        const tas = (anyIt.Tas as string) || '';
+
+        return {
+          fullName,
+          division,
+          department,
+          unit,
+          managementLevel,
+          tas,
+          date: it.Created
+        };
+      })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
@@ -241,7 +446,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       });
     });
 
-    // סדר כרונולוגי
     arr.sort((a, b) => a.date.localeCompare(b.date));
 
     return arr;
@@ -327,106 +531,112 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     });
   };
 
-    /** ייצוא טבלת "כניסות לפי דף" ל-CSV (אקסל) */
-    private exportPageAggToCsv = () => {
-      const { pageAgg, dateFrom, dateTo } = this.state;
-  
-      if (!pageAgg || pageAgg.length === 0) {
-        alert('אין נתונים לייצוא בטווח הנבחר.');
-        return;
-      }
-  
-      // כותרות כמו בטבלה
-      const header = ['דף', 'סוג', 'סה"כ כניסות', 'משתמשים ייחודיים'];
-  
-      const rows = pageAgg.map(p => [
-        p.page ?? '',
-        p.pageType ?? '',
-        p.total.toString(),
-        p.uniqueUsers.toString()
-      ]);
-  
-      const escapeCsv = (value: string) => {
-        if (value == null) return '';
-        const mustQuote = /[",\n]/.test(value);
-        let v = value.replace(/"/g, '""');
-        return mustQuote ? `"${v}"` : v;
-      };
-  
-      const allRows = [header, ...rows]
-        .map(r => r.map(escapeCsv).join(','))
-        .join('\r\n');
-  
-      // BOM בשביל עברית באקסל
-      const csvContent = '\uFEFF' + allRows;
-  
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-  
-      const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
-      const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
-      const fileName = `BezeqStatistics_Pages_${fromPart}_${toPart}.csv`;
-  
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    };
-  
-    /** ייצוא טבלת "כניסות לפי משתמש" ל-CSV (אקסל) */
-    private exportUserAggToCsv = () => {
-      const { userAgg, dateFrom, dateTo } = this.state;
-  
-      if (!userAgg || userAgg.length === 0) {
-        alert('אין נתונים לייצוא בטווח הנבחר.');
-        return;
-      }
-  
-      // כותרות הטבלה בדיוק כמו במסך
-      const header = ['משתמש', 'סה"כ כניסות'];
-  
-      // שורות
-      const rows = userAgg.map(u => [
-        u.userKey ?? '',
-        u.total.toString()
-      ]);
-  
-      // פונקציה קטנה לבריחה של ערכים ל-CSV
-      const escapeCsv = (value: string) => {
-        if (value == null) return '';
-        const mustQuote = /[",\n]/.test(value);
-        let v = value.replace(/"/g, '""');
-        return mustQuote ? `"${v}"` : v;
-      };
-  
-      const allRows = [header, ...rows]
-        .map(r => r.map(escapeCsv).join(','))
-        .join('\r\n');
-  
-      // הוספת BOM כדי שאקסל יזהה עברית (UTF-8)
-      const csvContent = '\uFEFF' + allRows;
-  
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-  
-      // שם קובץ נחמד עם טווח התאריכים
-      const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
-      const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
-      const fileName = `BezeqStatistics_Users_${fromPart}_${toPart}.csv`;
-  
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    };
-  
+  /** ייצוא טבלת "כניסות לפי דף" ל-CSV (אקסל) */
+  private exportPageAggToCsv = () => {
+    const { pageAgg, dateFrom, dateTo } = this.state;
 
+    if (!pageAgg || pageAgg.length === 0) {
+      alert('אין נתונים לייצוא בטווח הנבחר.');
+      return;
+    }
+
+    const header = ['דף', 'סוג', 'סה"כ כניסות', 'משתמשים ייחודיים'];
+
+    const rows = pageAgg.map(p => [
+      p.page ?? '',
+      p.pageType ?? '',
+      p.total.toString(),
+      p.uniqueUsers.toString()
+    ]);
+
+    const escapeCsv = (value: string) => {
+      if (value == null) return '';
+      const mustQuote = /[",\n]/.test(value);
+      let v = value.replace(/"/g, '""');
+      return mustQuote ? `"${v}"` : v;
+    };
+
+    const allRows = [header, ...rows]
+      .map(r => r.map(escapeCsv).join(','))
+      .join('\r\n');
+
+    const csvContent = '\uFEFF' + allRows;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
+    const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
+    const fileName = `BezeqStatistics_Pages_${fromPart}_${toPart}.csv`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  private exportUserAggToCsv = () => {
+    const { userAgg, dateFrom, dateTo } = this.state;
+  
+    if (!userAgg || userAgg.length === 0) {
+      alert('אין נתונים לייצוא בטווח הנבחר.');
+      return;
+    }
+  
+    const header = [
+      'שם מלא',
+      'חטיבה',
+      'אגף',
+      'מחלקה',
+      'רמה ניהולית',
+      'ת.ז',
+      'מועד כניסה',
+      'סה"כ כניסות'
+    ];
+  
+    const rows = userAgg.map(u => [
+      u.fullName || '',
+      u.division || '',
+      u.department || '',
+      u.unit || '',
+      u.managementLevel || '',
+      u.tas || '',
+      u.lastVisit ? new Date(u.lastVisit).toLocaleString('he-IL') : '',
+      u.total.toString()
+    ]);
+  
+    const escapeCsv = (value: string) => {
+      if (!value) return '';
+      const mustQuote = /[",\n]/.test(value);
+      let v = value.replace(/"/g, '""');
+      return mustQuote ? `"${v}"` : v;
+    };
+  
+    const csvContent =
+      '\uFEFF' +
+      [header, ...rows]
+        .map(r => r.map(escapeCsv).join(','))
+        .join('\r\n');
+  
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+  
+    const fromPart = dateFrom ? dateFrom.replace(/-/g, '') : '';
+    const toPart = dateTo ? dateTo.replace(/-/g, '') : '';
+  
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BezeqStatistics_Users_${fromPart}_${toPart}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  
+  
   // -------- Charts (line charts + tooltip) --------
   private renderPageCharts(stats: Array<{ date: string; total: number; uniqueUsers: number }>) {
     const { hoveredPoint } = this.state;
@@ -483,7 +693,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
 
     return (
       <div className={styles.chartsContainer}>
-        {/* גרף סה"כ כניסות */}
         <div className={styles.chartBlock}>
           <div className={styles.chartTitle}>סה"כ כניסות בטווח הנבחר</div>
           <div className={styles.chartBody}>
@@ -496,7 +705,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                 viewBox={`0 0 ${width} ${height}`}
                 preserveAspectRatio="none"
               >
-                {/* קו בסיס */}
                 <line
                   x1={padding}
                   y1={height - padding}
@@ -504,13 +712,11 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                   y2={height - padding}
                   className={styles.chartAxis}
                 />
-                {/* קו הגרף */}
                 <polyline
                   className={styles.chartLineTotal}
                   fill="none"
                   points={totalPoints}
                 />
-                {/* נקודות */}
                 {stats.map((s, index) => {
                   const val = s.total;
                   const x = n === 1
@@ -540,7 +746,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                 })}
               </svg>
 
-              {/* Tooltip מעל הנקודה */}
               {hoveredPoint && hoveredPoint.series === 'total' && (
                 <div
                   className={styles.chartTooltip}
@@ -567,7 +772,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
           </div>
         </div>
 
-        {/* גרף צופים ייחודיים */}
         <div className={styles.chartBlock}>
           <div className={styles.chartTitle}>צופים ייחודיים בטווח הנבחר</div>
           <div className={styles.chartBody}>
@@ -580,7 +784,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                 viewBox={`0 0 ${width} ${height}`}
                 preserveAspectRatio="none"
               >
-                {/* קו בסיס */}
                 <line
                   x1={padding}
                   y1={height - padding}
@@ -588,13 +791,11 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                   y2={height - padding}
                   className={styles.chartAxis}
                 />
-                {/* קו הגרף */}
                 <polyline
                   className={styles.chartLineUnique}
                   fill="none"
                   points={uniquePoints}
                 />
-                {/* נקודות */}
                 {stats.map((s, index) => {
                   const val = s.uniqueUsers;
                   const x = n === 1
@@ -624,7 +825,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                 })}
               </svg>
 
-              {/* Tooltip מעל הנקודה */}
               {hoveredPoint && hoveredPoint.series === 'unique' && (
                 <div
                   className={styles.chartTooltip}
@@ -739,16 +939,26 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
                         <table className={styles.table}>
                           <thead>
                             <tr>
-                              <th>משתמש</th>
-                              <th style={{ width: 180 }}>תאריך</th>
+                              <th>שם מלא</th>
+                              <th>חטיבה</th>
+                              <th>אגף</th>
+                              <th>מחלקה</th>
+                              <th>רמה ניהולית</th>
+                              <th>ת.ז</th>
+                              <th style={{ width: 180 }}>מועד כניסה</th>
                             </tr>
                           </thead>
                           <tbody>
                             {selectedPageRows.length === 0 ? (
-                              <tr><td colSpan={2}>אין נתונים לדף זה בטווח הנבחר</td></tr>
+                              <tr><td colSpan={7}>אין נתונים לדף זה בטווח הנבחר</td></tr>
                             ) : selectedPageRows.map((row, i) => (
                               <tr key={i}>
-                                <td>{row.user}</td>
+                                <td>{row.fullName}</td>
+                                <td>{row.division || '-'}</td>
+                                <td>{row.department || '-'}</td>
+                                <td>{row.unit || '-'}</td>
+                                <td>{row.managementLevel || '-'}</td>
+                                <td>{row.tas || '-'}</td>
                                 <td>{new Date(row.date).toLocaleString('he-IL')}</td>
                               </tr>
                             ))}
@@ -765,7 +975,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       </div>
     );
   }
-
 
   private renderByUser() {
     const { userAgg, loading } = this.state;
@@ -786,37 +995,54 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
         </div>
 
         <table className={styles.table} aria-label="כניסות לפי משתמש">
-          <thead>
-            <tr>
-              <th>משתמש</th>
-              <th style={{ width: 120 }}>סה"כ כניסות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={2}>טוען נתונים…</td></tr>
-            ) : userAgg.length === 0 ? (
-              <tr><td colSpan={2}>לא נמצאו נתונים בטווח הנבחר</td></tr>
-            ) : userAgg.map(u => (
-              <tr key={u.userKey}>
-                <td>
-                  <span
-                    className={styles.linkLike}
-                    title="לחץ להצגת פירוט לפי דפים"
-                    onClick={() => this.onClickUser(u.userKey)}
-                  >
-                    {u.userKey}
-                  </span>
-                </td>
-                <td><span className={styles.badge}>{u.total}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <thead>
+    <tr>
+      <th>שם מלא</th>
+      <th>חטיבה</th>
+      <th>אגף</th>
+      <th>מחלקה</th>
+      <th>רמה ניהולית</th>
+      <th>ת.ז</th>
+      <th style={{ width: 180 }}>מועד כניסה</th>
+      <th style={{ width: 120 }}>סה"כ כניסות</th>
+    </tr>
+  </thead>
+  <tbody>
+    {loading ? (
+      <tr><td colSpan={8}>טוען נתונים…</td></tr>
+    ) : userAgg.length === 0 ? (
+      <tr><td colSpan={8}>לא נמצאו נתונים בטווח הנבחר</td></tr>
+    ) : userAgg.map(u => (
+      <tr key={u.userKey}>
+        <td>
+          <span
+            className={styles.linkLike}
+            title="לחץ להצגת פירוט לפי דפים"
+            onClick={() => this.onClickUser(u.userKey)}
+          >
+            {u.fullName}
+          </span>
+        </td>
+        <td>{u.division || '-'}</td>
+        <td>{u.department || '-'}</td>
+        <td>{u.unit || '-'}</td>
+        <td>{u.managementLevel || '-'}</td>
+        <td>{u.tas || '-'}</td>
+        <td>
+          {u.lastVisit
+            ? new Date(u.lastVisit).toLocaleString('he-IL')
+            : '-'}
+        </td>
+        <td><span className={styles.badge}>{u.total}</span></td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+
       </div>
     );
   }
-
 
   private renderDetailsPanel() {
     const { selectedUser, selectedUserRows } = this.state;

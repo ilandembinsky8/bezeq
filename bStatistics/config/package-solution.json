@@ -3,7 +3,7 @@
   "solution": {
     "name": "bezeq-statistics-client-side-solution",
     "id": "c94e0304-1012-45d0-b90a-45fbb7fcbfdc",
-    "version": "1.0.0.0",
+    "version": "1.0.0.2",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
