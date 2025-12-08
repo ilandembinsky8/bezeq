@@ -3,7 +3,7 @@
   "solution": {
     "name": "bezeq-bmaster-client-side-solution",
     "id": "d2dc78e0-8961-43e7-9b66-f3d33807e778",
-    "version": "1.0.2.8",
+    "version": "1.0.3.2",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,
@@ -30,7 +30,7 @@
         "title": "bezeq-bmaster Feature",
         "description": "The feature that activates elements of the bezeq-bmaster solution.",
         "id": "6057892b-a8f9-4228-8196-d94d3b9167dc",
-        "version": "1.0.2.8"
+        "version": "1.0.3.2"
       }
     ],
     "webApiPermissionRequests": [

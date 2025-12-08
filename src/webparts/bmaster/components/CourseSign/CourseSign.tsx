@@ -112,7 +112,7 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
 
     }
 
-    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string): Promise<void> {
+    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string, ID?: number): Promise<void> {
         try {
             console.log('Preparing to trigger Power Automate flow...');
 
@@ -128,20 +128,21 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
             }
 
             // Power Automate HTTP endpoint
-            const flowUrl = "https://prod-180.westeurope.logic.azure.com:443/workflows/6f6af5008ad248eda67f5f27c53926ae/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=R2cKjArhWZqjXWcwzu4uRfku4EEpRTqpznBIngqal7I";
+            const flowUrl = "https://default4a936820d1e0422791030f8ff6abfb.77.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/6f6af5008ad248eda67f5f27c53926ae/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=hFWArT3AkEjKzYw53ufw08RXRMG9nn5nsZLRn1PdenE";
 
             // Prepare the body
             const requestBody: any = {
-    courseTitle: courseTitle,
-    startDate: startDate.toISOString(),
-    endDate: finishDate.toISOString(),
-    attendeeEmail: userEmail,
-    attendeeName: userName
-};
+                courseTitle: courseTitle,
+                startDate: startDate.toISOString(),
+                endDate: finishDate.toISOString(),
+                attendeeEmail: userEmail,
+                attendeeName: userName,
+                ID: ID
+            };
 
-if (location?.trim()) {
-    requestBody.location = location.trim();
-}
+            if (location?.trim()) {
+                requestBody.location = location.trim();
+            }
 
             // Make the HTTP POST request to Power Automate
             const response = await fetch(flowUrl, {
@@ -281,7 +282,9 @@ if (location?.trim()) {
                                                         _item.courseName.Title,
                                                         new Date(meeting.startDate),
                                                         new Date(meeting.finishDate),
-                                                        meeting.location
+                                                        meeting.location,
+                                                        meeting.ID,
+
                                                     );
                                                 })
                                             );

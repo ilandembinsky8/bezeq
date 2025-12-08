@@ -133,7 +133,7 @@ export default class OneCourse extends React.Component<IOneCourseProps, IOneCour
                 return;
             }
             // Power Automate HTTP endpoint
-            const flowUrl = "https://prod-21.westeurope.logic.azure.com:443/workflows/573b404827cf4a25baa45afa17391e39/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=B_TGUNqgM5dGJZ9P1pFwI-qSFRbQvP0jUccr3o6PSBI"
+            const flowUrl = "https://default4a936820d1e0422791030f8ff6abfb.77.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/573b404827cf4a25baa45afa17391e39/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=91voLSpm75XXrwSuiGeJKHx8BPeHHAivATJ54PhnGdg"
 
 
             // Prepare the body
@@ -209,7 +209,7 @@ export default class OneCourse extends React.Component<IOneCourseProps, IOneCour
                                 <div className={styles.right}>
                                     <div className={styles.title}>{_item.courseName.Title}</div>
                                     <div className={styles.text}
-                                    dangerouslySetInnerHTML={{ __html: _item.description }}>
+                                        dangerouslySetInnerHTML={{ __html: _item.description }}>
                                         {/* {_item.description} */}
                                     </div>
                                     <div className={styles.buttons}>

@@ -41,6 +41,7 @@ export interface Imeeting {
   startDate: string;
   finishDate: string;
   location?: string;
+  ID: number;
 }
 
 export interface ICoursesDates {

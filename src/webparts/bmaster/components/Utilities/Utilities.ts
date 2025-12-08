@@ -35,9 +35,12 @@ export class Utilities {
   public _getAllCourseSections = async (): Promise<ICourseSections[]> => {
     const spCache = this._sp;
     const items: ICourseSections[] = await spCache.web.lists
-      .getByTitle(this.List_NAME_CourseSections).items();
+      .getByTitle(this.List_NAME_CourseSections)
+      .items
+      .filter("(IsHidden eq false or IsHidden eq null)")();
     return items;
   }
+
 
   public getCategoryTitleByCourseID = async (): Promise<any[]> => {
     const spCache = this._sp;
@@ -138,8 +141,8 @@ export class Utilities {
     console.log("Fetching courses from list:", this.List_NAME_CoursesListName);
     const courses: any[] = await spCache.web.lists
       .getByTitle(this.List_NAME_CoursesListName)
-      .items.select("ID", "Title", "Lessons", "otherLink", "innerText1", "innerText2", "position")
-      .filter(`theSectionId eq ${_SectionID}`)
+      .items.select("ID", "Title", "Lessons", "otherLink", "innerText1", "innerText2", "position", "IsHidden")
+      .filter(`theSectionId eq ${_SectionID} and (IsHidden eq 0 or IsHidden eq null)`)
       .top(4999)();
     console.log("Courses fetched:", courses);
 
@@ -269,14 +272,15 @@ export class Utilities {
       filteredItems.map(async (course) => {
         const meetings = await spCache.web.lists
           .getByTitle(this.List_NAME_CoursesMeetingsListName)
-          .items.select("startDate", "endDate", "location", "actualCourse/ID")
+          .items.select("startDate", "endDate", "location", "actualCourse/ID", "ID")
           .expand("actualCourse")
           .filter(`actualCourse/ID eq ${course.ID}`)();
 
         course.meetings = meetings.map(meeting => ({
           startDate: meeting.startDate,
           finishDate: meeting.endDate,
-          location: meeting.location ? meeting.location : course.location
+          location: meeting.location ? meeting.location : course.location,
+          ID: meeting.ID
           //location: meeting.location,
         }));
       })
