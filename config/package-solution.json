@@ -3,7 +3,7 @@
   "solution": {
     "name": "bezeq-bmaster-client-side-solution",
     "id": "d2dc78e0-8961-43e7-9b66-f3d33807e778",
-    "version": "1.0.3.2",
+    "version": "1.0.3.3",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,

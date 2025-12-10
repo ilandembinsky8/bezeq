@@ -252,6 +252,76 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         return _htmlJSX;
     }
 
+    private extractTeudatZehutFromClaims(login: string): string | null {
+        if (!login) return null;
+        const match = login.match(/(\d{7,9})/);
+        return match ? match[1] : null;
+      }
+      
+      private extractTeudatZehutFromUpn(login: string): string | null {
+        if (!login) return null;
+        const parts = login.split('|');
+        const lastPart = parts[parts.length - 1] || login;
+        const upn = lastPart.split('@')[0];
+        const match = upn.match(/^(\d{7,9})$/);
+        return match ? match[1] : null;
+      }
+
+      private async logCourseClick(course: any, targetUrl: string): Promise<void> {
+        try {
+          const currentUser: any = await this._sp.web.currentUser();
+          const userName: string = currentUser.Title || '';
+          const loginName: string = currentUser.LoginName || '';
+      
+          const tzFromClaims = this.extractTeudatZehutFromClaims(loginName);
+          const teudatZehut = tzFromClaims || this.extractTeudatZehutFromUpn(loginName);
+      
+          let absoluteUrl: string;
+      
+          if (targetUrl && (targetUrl.indexOf('http://') === 0 || targetUrl.indexOf('https://') === 0)) {
+            absoluteUrl = targetUrl;
+          } else {
+            const needsSlash = targetUrl && targetUrl.charAt(0) !== '/' ? '/' : '';
+            absoluteUrl = window.location.origin + needsSlash + targetUrl;
+          }
+      
+          await this._sp.web.lists.getByTitle('BezeqStatistics').items.add({
+            Title: course.Title,
+            PageType: 'קורס',
+            UserNameText: userName,
+            Link: absoluteUrl,
+            PageID: String(course.ID),
+            Tas: teudatZehut || ''
+          });
+      
+        } catch (error) {
+          console.error('❌ Error logging course click:', error);
+        }
+      }
+      
+      private async handleCourseClick(Course: any): Promise<void> {
+        // אם יש otherLink – נשתמש בו, אחרת נעבור לדף הקורס הרגיל בלי ספירה
+        if (Course.otherLink && Course.otherLink.trim() !== '') {
+          const targetUrl: string = Course.otherLink;
+          const lower = targetUrl.toLowerCase();
+      
+          // אם היעד *לא* דף קורס/תחום – נספור כניסה
+          if (lower.indexOf('onecourse.aspx') === -1 && lower.indexOf('courses.aspx') === -1) {
+            try {
+              await this.logCourseClick(Course, targetUrl);
+            } catch (e) {
+              console.error('Failed to log course click', e);
+            }
+          }
+      
+          window.location.href = targetUrl;
+        } else {
+          // בלי otherLink – זה דף קורס רגיל, הספירה נעשית ב-BPageCount
+          this._goToOneCourse(Course.ID);
+        }
+      }
+      
+
     private _goToOneCourse(_ItemID: any) {
         // debugger;
         let __OneCourseUrl = "/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=";
@@ -619,8 +689,8 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                         id={`c${i + 1}`}
                                         className={`${styles.oneCourse} ${Course.isSoldOut ? styles.soldOut : ''}`}
                                         style={{ backgroundImage: `url('${this._getHtml(Course.ID)}')`, order: Course.position ?? 0 }}
-                                        onClick={() => Course.otherLink ? window.location.href = Course.otherLink : this._goToOneCourse(Course.ID)}
-                                    >
+                                        onClick={() => this.handleCourseClick(Course)}
+                                        >
                                         {Course.isSoldOut && (
                                             <div className={styles.soldOutBanner}></div>
                                         )}
