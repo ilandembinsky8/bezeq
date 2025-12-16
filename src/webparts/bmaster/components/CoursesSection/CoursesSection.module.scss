@@ -539,15 +539,33 @@ div {
     line-height: 1;
 }
 
-/* ❤️ Red like */
-.likeButton i {
-    color: #ff3b3b;
+.likeButton {
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+
+    background-image: url("https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/heart_Icon.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    cursor: pointer;
 }
 
-/* 💬 White comment */
-.commentButton i {
-    color: #ffffff;
+
+.commentButton {
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+
+    background-image: url("https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/comment_Icon.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    cursor: pointer;
 }
+
 
 /* Hover effects */
 .iconWrapper:hover {
@@ -564,8 +582,17 @@ div {
     text-shadow: 0 0 8px rgba(0, 224, 255, 0.6);
 }
 
-.shareButton i {
-    color: #00bcd4; // cyan share icon
+.shareButton {
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+
+    background-image: url("https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/share_Icon.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+
+    cursor: pointer;
 }
 
 .shareButton:hover i {
@@ -573,8 +600,14 @@ div {
 }
 
 /* Number labels */
-.countLabel {
-    color: #e0e0e0;
+.countLabelLike {
+    color: #EC4FA8;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.countLabelComment {
+    color: #45CFE3;
     font-weight: 500;
     font-size: 14px;
 }
