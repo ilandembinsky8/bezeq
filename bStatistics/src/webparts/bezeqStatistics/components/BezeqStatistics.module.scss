@@ -5,7 +5,25 @@
   background-color: black !important;
 }
 
+:global(.headerRow-111.headerRow-111.headerRow-111.headerRow-111.headerRow-111) {
+  display: none !important;
+}
+
+:global(#spCommandBar) {
+  background-color: black !important;
+}
+
+:global(#spPageCanvasContent) {
+  background-color: black !important;
+}
+
 :global(.root-149.root-149.root-149.root-149.root-149) {
+  background: none !important;
+  background-color: black !important;
+}
+
+/* NEW: אם אצלך לפעמים זה root אחר */
+:global(.root-178.root-178.root-178.root-178.root-178) {
   background: none !important;
   background-color: black !important;
 }
@@ -17,6 +35,16 @@
   background: transparent;
   font-size: 14px;
 
+  /* NEW: כדי להתאים ל-header של Bmaster (אותו טריק כמו באזור אישי) */
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  padding: 0;
+
+  /* ה-header הישן שלך כבר לא מוצג בקוד החדש, אבל נשאיר למקרה שתחזירי */
   .header {
     font-size: 18px;
     font-weight: 600;
@@ -26,6 +54,171 @@
     border-bottom: 1px solid #1f2937;
   }
 }
+
+/* =========================
+   NEW: Header כמו אזור אישי
+   ========================= */
+
+.containerBmaster {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #000;
+}
+
+.inner1520 {
+  margin: 0 auto;
+  width: 1520px;
+  max-width: calc(100% - 40px);
+}
+
+.imgSlogen {
+  max-width: 500px;
+  width: 85%;
+}
+
+.upperMenu {
+  float: right;
+  width: 100%;
+  height: 177px;
+  text-align: center;
+}
+
+.logo {
+  float: right;
+  width: 33.33%;
+  height: 100%;
+  cursor: pointer;
+
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/LOGO.png');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: contain;
+}
+
+.slogen {
+  float: right;
+  width: 33.33%;
+  height: 100%;
+  font-size: 53px;
+  margin-top: 53px;
+  color: white;
+}
+
+.search {
+  float: right;
+  width: 33.33%;
+  height: 100%;
+  margin-top: 68px;
+}
+
+.searchInner {
+  float: right;
+  width: 80%;
+  height: 40px;
+  border: 1px solid #aaaaaa;
+  border-radius: 20px;
+  background-color: white;
+}
+
+.micro {
+  float: right;
+  width: 10%;
+  height: 100%;
+  cursor: pointer;
+
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/micro.png');
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.magni {
+  float: right;
+  width: 10%;
+  height: 100%;
+  cursor: pointer;
+
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/magni.png');
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.inputWrap {
+  float: right;
+  width: 80%;
+  height: 100%;
+  text-align: center;
+
+  input {
+    width: 100%;
+    height: 30px;
+    border: 0;
+    text-align: right;
+    outline: none;
+    font-size: 18px;
+    background: transparent;
+    color: #000;
+  }
+}
+
+.topSeperator {
+  float: right;
+  width: 100%;
+  height: 50px;
+  padding-top: 10px;
+  border-top: 1px solid #5ce0e5;
+}
+
+.rightCourses {
+  float: right;
+  height: 20px;
+  color: white;
+  font-size: 2rem;
+}
+
+/* NEW: מעטפת תוכן כמו באזור אישי */
+.coursesSection {
+  float: right;
+  width: 100%;
+  padding: 50px;
+  margin-top: 20px;
+  color: white;
+}
+
+/* NEW: רספונסיב ל-header */
+@media only screen and (max-width: 992px) {
+  .upperMenu {
+    height: auto;
+    padding-bottom: 10px;
+  }
+
+  .logo {
+    width: 100%;
+    height: 120px;
+  }
+
+  .slogen {
+    width: 100%;
+    margin-top: 10px;
+    font-size: 1.66rem;
+  }
+
+  .search {
+    width: 100%;
+    margin-top: 15px;
+  }
+
+  .searchInner {
+    width: 90%;
+  }
+
+  .coursesSection {
+    padding: 20px;
+  }
+}
+
+/* =========================
+   CSS הקיים שלך (נשאר)
+   ========================= */
 
 .toolbar {
   display: flex;
@@ -304,4 +497,16 @@
 .iconButton:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.error {
+  color: #ff6b81;
+  font-size: 1rem;
+  margin-bottom: 12px;
+}
+
+.info {
+  color: #adf9ff;
+  font-size: 1rem;
+  margin-top: 10px;
 }

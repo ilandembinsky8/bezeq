@@ -32,6 +32,9 @@ const MAX_ITEMS = 10;
 const TOP_VISITS_FOR_RECS = 5;
 const MAX_RECOMMENDED = 10;
 
+// יעד החיפוש החדש
+const SEARCH_RESULTS_RELATIVE_URL = '/sites/Bmaster/SitePages/SearchResults.aspx?q=';
+
 // ==== TYPES ====
 
 type RawStatItem = {
@@ -67,16 +70,45 @@ type State = {
   error?: string;
   items: DedupedVisit[];
   recommendations: DedupedVisit[];
+  searchText: string;
 };
 
 export default class BPersonalZone extends React.Component<IBPersonalZoneProps, State> {
-  public state: State = { loading: true, items: [], recommendations: [] };
+  public state: State = {
+    loading: true,
+    items: [],
+    recommendations: [],
+    searchText: '',
+  };
 
   public componentDidMount(): void {
+
     this.loadData().catch(err =>
       this.setState({ loading: false, error: (err as Error).message || 'Load error' })
     );
   }
+
+  // ================== SEARCH ==================
+
+  private onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    this.setState({ searchText: e.target.value });
+  };
+
+  private goToSearch = () => {
+    const q = (this.state.searchText || '').trim();
+    if (!q) return;
+
+    // חשוב: לפי הבקשה - תמיד /sites/Bmaster/...
+    const target = `${SEARCH_RESULTS_RELATIVE_URL}${encodeURIComponent(q)}`;
+    window.location.assign(target);
+  };
+
+  private onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.goToSearch();
+    }
+  };
 
   // ================== LOAD MAIN DATA ==================
 
@@ -89,6 +121,8 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       `${webUrl}/_api/web/currentuser`,
       SPHttpClient.configurations.v1
     );
+
+    debugger;
     if (!meResp.ok) throw new Error(`Failed to get current user (${meResp.status})`);
     const me = await meResp.json();
     const myId: number = me?.Id;
@@ -133,19 +167,12 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       }
 
       const rawUrl = (r.Link || '').trim();
-      const url = ref
-        ? this.buildPageUrl(ref)
-        : rawUrl;
+      const url = ref ? this.buildPageUrl(ref) : rawUrl;
 
       const rawTitle = (r.Title || '').trim();
 
-      // אם אין לא כותרת ולא URL – אין מה להציג
       if (!rawTitle && !url) continue;
 
-      // מפתח דה־דופ:
-      // 1. קודם כל לפי כותרת (case-insensitive)
-      // 2. אם אין כותרת – לפי type+id
-      // 3. ואם גם זה אין – לפי URL מנורמל
       const key =
         rawTitle
           ? rawTitle.toLowerCase()
@@ -167,12 +194,10 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     }
 
     deduped.sort((a, b) => b.lastVisited.getTime() - a.lastVisited.getTime());
-
     const recommendations = await this.buildRecommendations(deduped);
 
     this.setState({ loading: false, items: deduped, recommendations });
   }
-
 
   // ================== RECOMMENDATIONS ==================
 
@@ -182,23 +207,19 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
 
     const recentKeys = new Set(seed.map(s => this.normalizeUrlForKey(s.url)));
 
-    // נעדיף לקחת את ה-ref מהסטטיסטיקות. רק אם אין – נפרש מה-URL
     const seedRefs: PageRef[] = [];
     for (const s of seed) {
-      if (s.ref) {
-        seedRefs.push(s.ref);
-      } else {
+      if (s.ref) seedRefs.push(s.ref);
+      else {
         const ref = this.parsePageRefFromUrl(s.url);
         if (ref) seedRefs.push(ref);
       }
     }
-
     if (seedRefs.length === 0) return [];
 
     const domainIds = seedRefs.filter(r => r.type === 'domain').map(r => r.id);
     const courseIds = seedRefs.filter(r => r.type === 'course').map(r => r.id);
 
-    // --- מילות מפתח עבור ה-seed משתי הרשימות ---
     const seedItems: SourceItem[] = [
       ...await this.fetchItemsByIds(DOMAINS_LIST_TITLE, 'domain', domainIds),
       ...await this.fetchItemsByIds(COURSES_LIST_TITLE, 'course', courseIds),
@@ -211,22 +232,17 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     }
     if (kwSet.size === 0) return [];
 
-    // --- כל הפריטים האפשריים משתי הרשימות ---
     const allDomainItems = await this.fetchAllItems(DOMAINS_LIST_TITLE, 'domain');
     const allCourseItems = await this.fetchAllItems(COURSES_LIST_TITLE, 'course');
     const allItems: SourceItem[] = [...allDomainItems, ...allCourseItems];
 
-    const seedKeySet = new Set<string>(
-      seedRefs.map(r => `${r.type}:${r.id}`)
-    );
+    const seedKeySet = new Set<string>(seedRefs.map(r => `${r.type}:${r.id}`));
 
     type Cand = { source: SourceItem; overlap: number; key: string };
     const candidates: Cand[] = [];
 
     for (const item of allItems) {
       const itemKey = `${item.type}:${item.id}`;
-
-      // לא ממליצים על מה שכבר seed
       if (seedKeySet.has(itemKey)) continue;
 
       const url = this.buildPageUrl(item);
@@ -238,18 +254,11 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       for (const kw of kws) if (kwSet.has(kw)) overlap++;
 
       if (overlap > 0) {
-        candidates.push({
-          source: item,
-          overlap,
-          key: norm,
-        });
+        candidates.push({ source: item, overlap, key: norm });
       }
     }
 
-    candidates.sort((a, b) =>
-      (b.overlap - a.overlap) ||
-      (b.source.id - a.source.id)
-    );
+    candidates.sort((a, b) => (b.overlap - a.overlap) || (b.source.id - a.source.id));
 
     const seenRec = new Set<string>();
     const recommended: DedupedVisit[] = [];
@@ -261,7 +270,7 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       recommended.push({
         url: this.buildPageUrl(cand.source),
         title: cand.source.title,
-        lastVisited: new Date(), // לא מוצג
+        lastVisited: new Date(),
       });
 
       if (recommended.length >= MAX_RECOMMENDED) break;
@@ -281,7 +290,6 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const webUrl = context.pageContext.web.absoluteUrl;
     const results: SourceItem[] = [];
     const cleanIds = Array.from(new Set(ids.filter(id => !!id)));
-
     if (cleanIds.length === 0) return [];
 
     const groups = this.chunk(cleanIds, 15);
@@ -311,10 +319,7 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     return results;
   }
 
-  private async fetchAllItems(
-    listTitle: string,
-    type: 'domain' | 'course'
-  ): Promise<SourceItem[]> {
+  private async fetchAllItems(listTitle: string, type: 'domain' | 'course'): Promise<SourceItem[]> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
     const select = `$select=Id,Title,${KEYWORDS_FIELD}`;
@@ -415,59 +420,110 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const isSameDay = d.toDateString() === now.toDateString();
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
-    if (isSameDay) return `היום ${d.toLocaleTimeString()}`;
-    if (d.toDateString() === yesterday.toDateString()) return `אתמול ${d.toLocaleTimeString()}`;
-    return d.toLocaleString();
+
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (isSameDay) return `היום ${time}`;
+    if (d.toDateString() === yesterday.toDateString()) return `אתמול ${time}`;
+    return d.toLocaleDateString('he-IL') + ' ' + time;
   }
 
   // ================== RENDER ==================
 
   public render(): React.ReactElement<IBPersonalZoneProps> {
-    const { loading, error, items, recommendations } = this.state;
+    const { loading, error, items, recommendations, searchText } = this.state;
 
     return (
       <section className={styles.bPersonalZone}>
-        <div className={styles.header}>האזור האישי</div>
+        <div className={styles.containerBmaster}>
+        {/* HEADER NEW */}
+        <div className={styles.upperMenu}>
+          <div className={styles.logo} role="button" tabIndex={0} aria-label="Logo" />
+          <div className={styles.slogen}><img src="https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/slogen.png" className={styles.imgSlogen}/></div>
 
-        <div className={styles.header2}>דפים אחרונים</div>
-        {loading && <div className={styles.info}>טוען…</div>}
-        {error && <div className={styles.error}>שגיאה: {error}</div>}
+          <div className={styles.search}>
+            <div className={styles.searchInner}>
+              <div className={styles.micro} aria-hidden />
+              <div className={styles.inputWrap}>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={this.onSearchChange}
+                  onKeyDown={this.onSearchKeyDown}
+                />
+              </div>
+              <div
+                className={styles.magni}
+                role="button"
+                tabIndex={0}
+                aria-label="Search"
+                onClick={this.goToSearch}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.goToSearch();
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
 
-        {!loading && !error && items.length === 0 && (
-          <div className={styles.info}>אין עדיין כניסות להצגה.</div>
-        )}
+        {/* TOP SEPARATOR + TITLE */}
+        <div className={styles.topSeperator}>
+          <div className={styles.inner1520}>
+            <div className={styles.rightCourses}>איזור אישי</div>
+          </div>
+        </div>
 
-        {!loading && !error && items.length > 0 && (
-          <ul className={styles.list}>
-            {items.map((it, idx) => (
-              <li key={idx} className={styles.item}>
-                <a href={it.url} className={styles.link} target="_self" rel="noopener">
-                  <span className={styles.title}>{it.title}</span>
-                  <span className={styles.meta}>{this.formatDate(it.lastVisited)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* CONTENT */}
+        <div className={styles.coursesSection}>
+          <div className={styles.inner1520}>
+            {loading && <div className={styles.info}>טוען…</div>}
+            {error && <div className={styles.error}>שגיאה: {error}</div>}
 
-        {!loading && !error && (
-          <>
-            <div className={styles.header2} style={{ marginTop: 14 }}>דפים מומלצים</div>
-            {recommendations.length === 0 ? (
-              <div className={styles.info}>אין המלצות כרגע.</div>
-            ) : (
-              <ul className={styles.list}>
-                {recommendations.map((it, idx) => (
-                  <li key={`rec-${idx}`} className={styles.item}>
-                    <a href={it.url} className={styles.link} target="_self" rel="noopener">
-                      <span className={styles.title}>{it.title}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+            {!loading && !error && (
+              <div className={styles.columns}>
+                {/* RIGHT: LAST PAGES */}
+                <div className={styles.col}>
+                  <div className={styles.colTitle}>דפים אחרונים</div>
+
+                  {items.length === 0 ? (
+                    <div className={styles.info}>אין עדיין כניסות להצגה.</div>
+                  ) : (
+                    <div className={styles.rows}>
+                      {items.map((it, idx) => (
+                        <a key={`last-${idx}`} className={styles.row} href={it.url} target="_self" rel="noopener">
+                          <div className={styles.rowRight}>{it.title}</div>
+                          <div className={styles.rowLeft}>{this.formatDate(it.lastVisited)}</div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* LEFT: RECOMMENDED */}
+                <div className={styles.col}>
+                  <div className={styles.colTitle}>דפים מומלצים</div>
+
+                  {recommendations.length === 0 ? (
+                    <div className={styles.info}>אין המלצות כרגע.</div>
+                  ) : (
+                    <div className={styles.rows}>
+                      {recommendations.map((it, idx) => (
+                        <a key={`rec-${idx}`} className={styles.row} href={it.url} target="_self" rel="noopener">
+                          <div className={styles.rowRight}>{it.title}</div>
+                          <div className={styles.rowLeft} />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
-          </>
-        )}
+          </div>
+        </div>
+        </div>
       </section>
     );
   }
