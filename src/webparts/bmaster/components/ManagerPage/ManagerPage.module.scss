@@ -1,0 +1,280 @@
+@import '~@fluentui/react/dist/sass/References.scss';
+
+body {
+    font-family: Calibri, Candara, Segoe, Segoe UI, Optima, Arial, sans-serif;
+    font-size: 18px;
+    direction: rtl;
+    background-color: #000000;
+}
+
+[data-viewport-id^="Page.CommentsWrapper"] {
+    display: none !important;
+}
+
+
+div {
+    box-sizing: border-box;
+}
+
+
+.topSeperator {
+    float: right;
+    width: 100%;
+    margin-top: -30px;
+    // height: 50px;
+    // padding-top: 10px;
+    // border-top: 1px solid #5ce0e5;
+}
+
+.topSeperator .right {
+    float: right;
+    width: 60%;
+    height: 20px;
+
+}
+
+.topSeperator .center {
+    float: right;
+    width: 20%;
+    height: 20px;
+    text-align: center
+}
+
+.topSeperator .left {
+    float: right;
+    width: 20%;
+    height: 20px;
+    margin-top: 20px;
+
+}
+
+.topSeperator .right_courses {
+    float: right;
+    margin-left: 20px;
+    height: 20px;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.topSeperator .center_courses {
+    float: right;
+    height: 54px;
+    width: 428px;
+    text-align: center;
+    color: white;
+    font-size: 1.5rem;
+    text-align: right;
+    background-image: url("https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/arrow_new.png");
+    background-repeat: no-repeat;
+    background-position: right bottom;
+    background-size: 100% 24px;
+
+}
+
+.topSeperator .left_courses {
+    float: right;
+    width: 30%;
+    height: 20px;
+    margin-top: 20px;
+
+}
+
+.topSeperator .right_oneCourse {
+    float: right;
+    width: 20%;
+    height: 20px;
+
+}
+
+.topSeperator .center_oneCourse {
+    float: right;
+    width: 30%;
+    height: 20px;
+    text-align: center
+}
+
+.topSeperator .left_oneCourse {
+    // float: right;
+    width: 50%;
+    height: 20px;
+    margin-top: 40px;
+    border-top: 2px solid white
+}
+
+.coursesSection .right .text {
+    float: right;
+    width: 80%
+}
+
+.search {
+    display: flex;
+    flex-direction: column;
+    align-items: center; // Center content horizontally
+    justify-content: center;
+    color: #ffffff; // White text for contrast
+    padding: 20px;
+    border-radius: 10px;
+    // width: 80%;
+    // max-width: 800px;
+    margin: 40px auto; // Center horizontally with margin
+    box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.1); // Subtle glowing effect
+}
+
+h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: #00ccff; // Light blue color for emphasis
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    // width: 100%;
+}
+
+li {
+    background: rgba(255, 255, 255, 0.1); // Light transparency for depth
+    padding: 12px 18px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    transition: background 0.3s ease-in-out;
+    font-size: 18px;
+    width: 100%;
+    max-width: 600px; // Limit width for better readability
+}
+
+li:hover {
+    background: rgba(255, 255, 255, 0.2); // Highlight effect on hover
+}
+
+a {
+    text-decoration: none;
+    color: white;
+}
+
+// a:hover {
+//     color: #ff9900; // Darker orange on hover
+// }
+
+
+.managerContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 90px;
+    padding: 0 20px;
+}
+
+.managerCard {
+    width: 80%;
+    max-width: 900px;
+    // background: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.08);
+}
+
+.managerRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.managerLabel {
+    width: 180px;
+    color: #adf9ff;
+    font-size: 20px;
+}
+
+.managerSelect,
+.managerInput {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(173, 249, 255, 0.35);
+    border-radius: 6px;
+    color: white;
+    padding: 10px 12px;
+    font-size: 18px;
+    outline: none;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.managerButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.managerSelect:disabled {
+    opacity: 0.5;
+}
+
+.managerActions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.managerButton {
+    background: rgba(173, 249, 255, 0.18);
+    border: 1px solid rgba(173, 249, 255, 0.5);
+    color: #adf9ff;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.managerButton:hover {
+    background: rgba(173, 249, 255, 0.28);
+}
+
+/* Wrapper to allow dropdown positioning */
+.managerSelectWrapper {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+input.managerSelect {
+    width: 100%;
+}
+
+/* Dropdown under managerSelect */
+.managerDropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    background: #111;
+    border: 1px solid rgba(173, 249, 255, 0.35);
+    border-radius: 6px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+/* Dropdown item */
+.managerDropdownItem {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: #fff;
+    font-size: 16px;
+}
+
+.managerDropdownItem:hover {
+    background: rgba(173, 249, 255, 0.15);
+}
+
+.managerSectionTitle {
+    margin: 0 0 20px 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: #adf9ff;
+}

@@ -1,0 +1,54 @@
+@import "~@fluentui/react/dist/sass/References.scss";
+
+/* ✅ Buttons (actionButtons) — MOBILE ONLY */
+
+/* Hide by default (desktop/tablet) */
+.upperMenu .actionButtons {
+    display: none;
+}
+
+/* Show + center only on mobile */
+@media only screen and (max-width: 992px) {
+    .actionButtons {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        /* center horizontally */
+        align-items: center;
+        /* center vertically */
+        gap: 5px;
+        margin-top: 20px;
+        /* adjust if needed */
+        // height: 0px;
+    }
+
+    .managerButton {
+        background: none;
+        border: none;
+        cursor: pointer;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .managerIcon {
+        width: 80px;
+        /* change size as needed */
+        height: auto;
+        display: block;
+    }
+
+    .managerText {
+        color: #1ec9ff;
+        font-size: 14px;
+    }
+
+    /* If you use this class to hide buttons when search is opened */
+    .hideOnMobileSearch {
+        display: none !important;
+    }
+
+
+}

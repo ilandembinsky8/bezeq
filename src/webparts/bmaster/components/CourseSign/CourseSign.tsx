@@ -112,7 +112,7 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
 
     }
 
-    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string, ID?: number): Promise<void> {
+    private async _createCalendarEvent(courseTitle: string, startDate: Date, finishDate: Date, location?: string, ID?: number, actualCourseId?: number): Promise<void> {
         try {
             console.log('Preparing to trigger Power Automate flow...');
 
@@ -137,7 +137,8 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
                 endDate: finishDate.toISOString(),
                 attendeeEmail: userEmail,
                 attendeeName: userName,
-                ID: ID
+                ID: ID,
+                actualCourseId: actualCourseId
             };
 
             if (location?.trim()) {
@@ -284,6 +285,7 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
                                                         new Date(meeting.finishDate),
                                                         meeting.location,
                                                         meeting.ID,
+                                                        _item.ID
 
                                                     );
                                                 })
@@ -294,7 +296,9 @@ export default class CourseSign extends React.Component<ICourseSignProps, ICours
                                                 _item.courseName.Title,
                                                 new Date(_item.startDate),
                                                 new Date(_item.finishDate),
-                                                _item.location
+                                                _item.location,
+                                                undefined,
+                                                _item.ID
                                             );
                                         }
                                         this._goToOneCourseThanks(_item.ID); // Navigate after all calls complete

@@ -141,7 +141,7 @@ export class Utilities {
     console.log("Fetching courses from list:", this.List_NAME_CoursesListName);
     const courses: any[] = await spCache.web.lists
       .getByTitle(this.List_NAME_CoursesListName)
-      .items.select("ID", "Title", "Lessons", "otherLink", "innerText1", "innerText2", "position", "IsHidden")
+      .items.select("ID", "Title", "Lessons", "otherLink", "innerText1", "innerText2", "position", "IsHidden", "isVideo")
       .filter(`theSectionId eq ${_SectionID} and (IsHidden eq 0 or IsHidden eq null)`)
       .top(4999)();
     console.log("Courses fetched:", courses);
@@ -238,7 +238,6 @@ export class Utilities {
       .top(1)();
     return items;
   }
-
 
   public _getCourseSignOptionsByCourseID = async (CourseID: string): Promise<ICoursesDates[]> => {
     const spCache = this._sp;
@@ -384,22 +383,33 @@ export class Utilities {
   };
 
 
-
-  public registerUser = async (courseName: number, practicalCourse: number) => {
+  public registerUser = async (
+    courseName: number,
+    practicalCourse: number,
+    userId?: number
+  ) => {
     try {
-      const sp = getSP(); // Initialize PnP.js instance
-      const listName = this.List_NAME_CourseRegistrationListName; // Replace with your actual SharePoint list name
-      // Retrieve the current user's login name
-      const currentUser = await sp.web.currentUser(); // Fetches current user details
-      // Add a new item with the provided fields and the current user's details
-      const result = await sp.web.lists.getByTitle(listName).items.add({
-        courseNameId: courseName, // Assuming the Title field is for courseName
-        practicalCourseId: practicalCourse, // Field for practical course
-        listedNameId: currentUser.Id // SharePoint person field requires the user's ID
-      });
-      console.log("Item added successfully:", result.data); // Logs the added item details
+      const sp = getSP();
+      const listName = this.List_NAME_CourseRegistrationListName;
+
+      let resolvedUserId = userId;
+
+      if (!resolvedUserId) {
+        const currentUser = await sp.web.currentUser();
+        resolvedUserId = currentUser.Id;
+      }
+
+      const result = await sp.web.lists
+        .getByTitle(listName)
+        .items.add({
+          courseNameId: courseName,
+          practicalCourseId: practicalCourse,
+          listedNameId: resolvedUserId
+        });
+
+      console.log("Item added successfully:", result.data);
     } catch (error) {
-      console.error("Error adding item to the list:", error); // Logs errors if any
+      console.error("Error adding item to the list:", error);
     }
   };
 
@@ -427,34 +437,54 @@ export class Utilities {
   };
 
 
-  public async getRegistrationItemId(userEmail: string): Promise<object | null> {
+  public async getRegistrationItemId(
+    userEmail: string,
+    courseId: number
+  ): Promise<{ id: number; practicalCourse: number } | null> {
     try {
       const spCache = this._sp;
-      // Debug: Log the userEmail
-      console.log("Checking registration for user email:", userEmail);
-      // Query the list to find all items by the user's email
+
+      console.log("Checking registration for user:", userEmail, "courseId:", courseId);
+
       const items = await spCache.web.lists
         .getByTitle(this.List_NAME_CourseRegistrationListName)
-        .items.filter(`listedName/EMail eq '${userEmail}'`) // Filter by the user's email
-        .select("ID", "listedName/EMail", "practicalCourse/ID", "practicalCourse/startDate") // Fetch required fields
-        .expand("listedName", "practicalCourse") // Expand the person & lookup fields
-        () // Get all matching items
-      // Debug: Log the items returned
+        .items
+        .filter(
+          `listedName/EMail eq '${userEmail}' and courseName/ID eq ${courseId}`
+        )
+        .select(
+          "ID",
+          "listedName/EMail",
+          "courseName/ID",
+          "practicalCourse/ID",
+          "practicalCourse/startDate"
+        )
+        .expand("listedName", "courseName", "practicalCourse")();
+
       console.log("Query result:", items);
+
       if (items.length === 0) {
-        return null; // No items found, return null
+        return null;
       }
-      // Sort items by practicalCourse.startDate in descending order (latest first)
-      const sortedItems = items.sort((a, b) =>
-        new Date(b.practicalCourse.startDate).getTime() - new Date(a.practicalCourse.startDate).getTime()
+
+      // Keep your existing logic: latest practical course wins
+      const sortedItems = items.sort(
+        (a, b) =>
+          new Date(b.practicalCourse.startDate).getTime() -
+          new Date(a.practicalCourse.startDate).getTime()
       );
-      // Return the first item (latest practical course)
-      return { id: sortedItems[0].ID, practicalCourse: sortedItems[0].practicalCourse.ID };
+
+      return {
+        id: sortedItems[0].ID,
+        practicalCourse: sortedItems[0].practicalCourse.ID
+      };
+
     } catch (error) {
       console.error("Error retrieving registration item ID:", error);
-      return null; // Return null in case of an error
+      return null;
     }
   }
+
 
 
   public _fetchMergedCourseData = async (searchQuery: string): Promise<{ title: string; description: string; link: string; image?: string }[]> => {

@@ -41,7 +41,7 @@ export default class TopSeperator extends React.Component<ITopSeperatorProps, IT
         } catch (error) {
             console.error("Error fetching course title:", error);
         }
-        
+
     }
 
     public getTitleText(): string {
@@ -86,8 +86,24 @@ export default class TopSeperator extends React.Component<ITopSeperatorProps, IT
 
                 {_PageType == 'SearchResults'
                     && (<>
-                    <div className={styles.topSeperator}>
-                    </div>
+                        <div className={styles.topSeperator}>
+                        </div>
+                    </>)
+                }
+
+                {_PageType == 'ManagerPage'
+                    && (<>
+                        <div className={styles.courseTitle}>{"דף מנהל"}</div>
+                        <div className={styles.topSeperator}>
+                        </div>
+                    </>)
+                }
+
+                {_PageType == 'VideoPage'
+                    && (<>
+                        <div className={styles.courseTitle}>{this.getTitleText()}</div>
+                        <div className={styles.topSeperator}>
+                        </div>
                     </>)
                 }
             </>

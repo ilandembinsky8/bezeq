@@ -3,6 +3,7 @@ import styles from './Bmaster.module.scss';
 import type { IBmasterProps } from './IBmasterProps';
 
 import TopNav from './topNav/TopNav';
+import BottomNav from './bottomNav/BottomNav';
 import SlideShow from './SlideShow/SlideShow';
 import Sections from './Sections/Sections';
 import CoursesSection from './CoursesSection/CoursesSection';
@@ -12,6 +13,11 @@ import OneCourse from './OneCourse/OneCourse';
 import CourseSign from './CourseSign/CourseSign';
 import OneCourseThanks from './OneCourseThanks/OneCourseThanks';
 import SearchResults from './SearchResults/SearchResults';
+import ManagerPage from './ManagerPage/ManagerPage';
+import VideoPage from './VideoPage/VideoPage';
+import ContactUs from './ContactUs/ContactUs';
+
+
 
 export default class Bmaster extends React.Component<IBmasterProps> {
 
@@ -68,6 +74,19 @@ export default class Bmaster extends React.Component<IBmasterProps> {
         {_PageType === 'SearchResults' &&
           <SearchResults ></SearchResults>
         }
+
+        {_PageType === 'ManagerPage' &&
+          <ManagerPage context={this.props.context}></ManagerPage>
+        }
+
+        {_PageType === 'VideoPage' &&
+          <VideoPage context={this.props.context}></VideoPage>
+        }
+
+        {_PageType === 'ContactUs' &&
+          <ContactUs context={this.props.context}></ContactUs>
+        }
+        {window.innerWidth <= 992 && <BottomNav />}
 
       </div>
     );

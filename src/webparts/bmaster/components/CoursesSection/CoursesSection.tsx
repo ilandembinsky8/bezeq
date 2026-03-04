@@ -141,14 +141,27 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         console.table(sectionsItems);
         console.table(itemsPhotos);
 
-        // 2️⃣ Fetch all like counts in parallel
-        const likePromises = items.map((course) => this._getLikesCount(course.ID, null));
+        // 2️⃣ Fetch course likes
+        const likePromises = items.map(course =>
+            this._getLikesCount(course.ID, null)
+        );
         const likeResults = await Promise.all(likePromises);
 
         const likeCounts: { [key: number]: number } = {};
         items.forEach((course, index) => {
             likeCounts[course.ID] = likeResults[index];
         });
+
+        // 2️⃣ Fetch section likes
+        const sectionLikePromises = sectionsItems.map(section =>
+            this._getLikesCount(null, section.ID)
+        );
+        const sectionLikeResults = await Promise.all(sectionLikePromises);
+
+        sectionsItems.forEach((section, index) => {
+            likeCounts[section.ID] = sectionLikeResults[index];
+        });
+
 
         // 3️⃣ Fetch all comment counts in parallel (for courses and sections)
         const courseCommentPromises = items.map((course) => this._getCommentsCount(course.ID, null));
@@ -619,7 +632,17 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                         id={`c${i + 1}`}
                                         className={`${styles.oneCourse} ${Course.isSoldOut ? styles.soldOut : ''}`}
                                         style={{ backgroundImage: `url('${this._getHtml(Course.ID)}')`, order: Course.position ?? 0 }}
-                                        onClick={() => Course.otherLink ? window.location.href = Course.otherLink : this._goToOneCourse(Course.ID)}
+                                        onClick={() => {
+                                            if (Course.isVideo) {
+                                                window.location.href =
+                                                    `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${Course.ID}`;
+                                            } else if (Course.otherLink) {
+                                                window.location.href = Course.otherLink;
+                                            } else {
+                                                this._goToOneCourse(Course.ID);
+                                            }
+                                        }}
+
                                     >
                                         {Course.isSoldOut && (
                                             <div className={styles.soldOutBanner}></div>
@@ -874,7 +897,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                 className={styles.commentCancelBtn}
                                                 onClick={() =>
                                                     this.setState({
-                                                        showPeoplePickerPopup: false,
+                                                        showCommentPopup: false,
                                                         searchText: "",
                                                         selectedUsers: [],
                                                         filteredUsers: this.state.allowedUsers

@@ -173,7 +173,7 @@ export default class OneCourse extends React.Component<IOneCourseProps, IOneCour
     }
   }
 
-  private async _deleteCalendarEvent(courseTitle: string): Promise<void> {
+  private async _deleteCalendarEvent(courseTitle: string, actualCourseId: number): Promise<void> {
     try {
       console.log("Initializing MSGraphClient for deleting an event...");
 
@@ -190,8 +190,10 @@ export default class OneCourse extends React.Component<IOneCourseProps, IOneCour
 
       const requestBody = {
         email: userEmail,
-        courseTitle: courseTitle
+        courseTitle: courseTitle,
+        actualCourseId: actualCourseId
       };
+
 
       const response = await fetch(flowUrl, {
         method: "POST",
@@ -277,10 +279,13 @@ export default class OneCourse extends React.Component<IOneCourseProps, IOneCour
                                     elements.forEach(el => (el as HTMLElement).style.cursor = 'wait');
                                     elements.forEach(el => (el as HTMLElement).style.pointerEvents = 'none');
 
-                                    const registrationItemId = await this._Utilities.getRegistrationItemId(userEmail) as { id: number; practicalCourse: number };
+                                    const courseId = Number(
+                                      new URL(window.location.href).searchParams.get("CourseID")
+                                    );
+                                    const registrationItemId = await this._Utilities.getRegistrationItemId(userEmail, courseId) as { id: number; practicalCourse: number };
                                     await this._Utilities.removeRegistrations(registrationItemId.id);
                                     await this._Utilities.subtractRegisterdNumber(registrationItemId.practicalCourse);
-                                    await this._deleteCalendarEvent(_item.courseName.Title);
+                                    await this._deleteCalendarEvent(_item.courseName.Title, registrationItemId.practicalCourse);
 
                                     window.location.reload();
                                   } catch (error) {
