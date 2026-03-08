@@ -126,6 +126,18 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         this.closeIt(i.toString());
     };
 
+    private _getCourseTargetUrl(course: any): string {
+        if (course.isVideo) {
+            return `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${course.ID}`;
+        }
+    
+        if (course.otherLink && typeof course.otherLink === "string" && course.otherLink.trim() !== "") {
+            return course.otherLink.trim();
+        }
+    
+        return `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${course.ID}`;
+    }
+
     private async _getItems() {
         // 1️⃣ Fetch all main data in parallel
         const [items, sectionsItems, itemsPhotos] = await Promise.all([
@@ -304,32 +316,19 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
     }
 
     private async _handleCourseClick(course: any): Promise<void> {
-        // דף וידאו פנימי - לא סופרים כאן
-        if (course.isVideo) {
-            window.location.href = `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${course.ID}`;
-            return;
+        const targetUrl = this._getCourseTargetUrl(course);
+        const lower = targetUrl.toLowerCase();
+    
+        const isInternalCountedPage =
+            lower.indexOf('onecourse.aspx') !== -1 ||
+            lower.indexOf('courses.aspx') !== -1 ||
+            lower.indexOf('videopage.aspx') !== -1;
+    
+        if (!isInternalCountedPage) {
+            await this._logCourseClick(course, targetUrl);
         }
-
-        // לינק חיצוני / אחר
-        if (course.otherLink && course.otherLink.trim() !== '') {
-            const targetUrl: string = course.otherLink;
-            const lower = targetUrl.toLowerCase();
-
-            const isInternalCountedPage =
-                lower.indexOf('onecourse.aspx') !== -1 ||
-                lower.indexOf('courses.aspx') !== -1 ||
-                lower.indexOf('videopage.aspx') !== -1;
-
-            if (!isInternalCountedPage) {
-                await this._logCourseClick(course, targetUrl);
-            }
-
-            window.location.href = targetUrl;
-            return;
-        }
-
-        // דף קורס פנימי רגיל - לא סופרים כאן
-        this._goToOneCourse(course.ID);
+    
+        window.location.href = targetUrl;
     }
 
     private _goToOneCourse(_ItemID: any) {
@@ -762,7 +761,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                                 showPeoplePickerPopup: true,
                                                                 selectedCourse: {
                                                                     Title: Course.Title,
-                                                                    Link: Course.otherLink || window.location.href
+                                                                    Link: this._getCourseTargetUrl(Course)
                                                                 },
                                                             });
 
