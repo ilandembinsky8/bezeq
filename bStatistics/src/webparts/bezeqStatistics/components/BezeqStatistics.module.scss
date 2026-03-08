@@ -28,6 +28,21 @@
   background-color: black !important;
 }
 
+
+:global([id^="vpc_Page.CommentsWrapper.internal"]) {
+  display: none !important;
+  background-color: black !important;
+}
+
+CommentsWrapper
+
+
+:global(#CommentsWrapper) {
+  display: none !important;
+  background-color: black !important;
+}
+
+
 .bezeqStatistics {
   direction: rtl;
   text-align: right;

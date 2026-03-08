@@ -1,6 +1,10 @@
 @import '~@fluentui/react/dist/sass/References.scss';
 
-:global(.headerRow-111.headerRow-111.headerRow-111.headerRow-111.headerRow-111) {
+[data-automation-id="CanvasSection"] {
+  background-color: black !important;
+}
+
+div[id^="vpc_Page.CommentsWrapper.internal"] {
   display: none !important;
 }
 
@@ -8,278 +12,276 @@
   background-color: black !important;
 }
 
-:global(#spPageCanvasContent) {
-  background-color: black !important;
-}
 
-:global(.root-149.root-149.root-149.root-149.root-149) {
-  background: none !important;
-  background-color: black !important;
-}
-
-
-@import '~@fluentui/react/dist/sass/References.scss';
-
+/* ===============================
+   ROOT CONTAINER
+================================ */
 .bPersonalZone {
   direction: rtl;
   text-align: right;
-  background-color: #000;
+
+  background: black;
+  color: #f5f7fa;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  padding: 16px 18px;
+  border: 1px solid #1e3560;
+
   box-sizing: border-box;
-  font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
-
-  /* Force full viewport width even inside a narrow SharePoint column */
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
-
-  padding: 0;
+  overflow-x: hidden;
+  /* critical for SPFx + RTL */
 }
 
-.imgSlogen {
-  max-width: 500px;
-  width: 85%;
-}
-
-.containerBmaster {
-  width: 100%;
-  min-height: 100vh;
-  background-color: #000;
-}
-
-.inner1520 {
-  margin: 0 auto;
-  width: 1520px;
-  max-width: calc(100% - 40px);
-}
-
-/* ===== Header (upperMenu) ===== */
-
-.upperMenu {
-  float: right;
-  width: 100%;
-  height: 177px;
+/* ===============================
+   HEADER (OUTSIDE LAYOUT)
+================================ */
+.pageHeader {
   text-align: center;
+  margin-bottom: 24px;
 }
 
-.logo {
-  float: right;
-  width: 33.33%;
-  height: 100%;
-  cursor: pointer;
-
-  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/LOGO.png');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: contain;
-}
-
-.slogen {
-  float: right;
-  width: 33.33%;
-  height: 100%;
-  font-size: 53px;
-  margin-top: 53px;
+.courseTitle {
+  width: 100%;
   color: white;
-}
-
-.search {
-  float: right;
-  width: 33.33%;
-  height: 100%;
-  margin-top: 68px;
-}
-
-.searchInner {
-  float: right;
-  width: 80%;
-  height: 40px;
-  border: 1px solid #aaaaaa;
-  border-radius: 20px;
-  background-color: white;
-}
-
-.micro {
-  float: right;
-  width: 10%;
-  height: 100%;
-  cursor: pointer;
-
-  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/micro.png');
-  background-position: center center;
-  background-repeat: no-repeat;
-}
-
-.magni {
-  float: right;
-  width: 10%;
-  height: 100%;
-  cursor: pointer;
-
-  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/magni.png');
-  background-position: center center;
-  background-repeat: no-repeat;
-}
-
-.inputWrap {
-  float: right;
-  width: 80%;
-  height: 100%;
+  font-size: 2.5rem;
   text-align: center;
-
-  input {
-    width: 100%;
-    height: 30px;
-    border: 0;
-    text-align: right;
-    outline: none;
-    font-size: 18px;
-    background: transparent;
-  }
 }
-
-/* ===== Top separator ===== */
 
 .topSeperator {
-  float: right;
   width: 100%;
-  height: 50px;
-  padding-top: 10px;
+  height: 40px;
+  margin-top: 10px;
   border-top: 1px solid #5ce0e5;
 }
 
-.rightCourses {
-  float: right;
-  height: 20px;
-  color: white;
-  font-size: 2rem;
-}
-
-/* ===== Content area ===== */
-
-.coursesSection {
-  float: right;
-  width: 100%;
-  padding: 50px;
-  margin-top: 20px;
-  color: white;
-}
-
-.columns {
+/* ===============================
+   MAIN LAYOUT (FLEX — SAFE)
+   Support both classnames:
+   - pageLayout (recommended)
+   - pageGrid (legacy)
+================================ */
+.pageLayout,
+.pageGrid {
   display: flex;
-  gap: 40px;
+  gap: 48px;
+
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* ===============================
+   COLUMNS
+================================ */
+.leftColumn {
+  width: 25%;
+  display: flex;
+  justify-content: center;
   align-items: flex-start;
-  justify-content: space-between;
+  box-sizing: border-box;
+  margin-left: 50px;
+  flex-direction: column;
 }
 
-.col {
-  width: 44%;
+.centerColumn {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  /* REQUIRED */
+  box-sizing: border-box;
 }
 
-.colTitle {
-  float: right;
-  width: 100%;
-  height: 60px;
-  color: #adf9ff;
-  font-size: 36px;
-}
-
-.rows {
-  float: right;
-  width: 100%;
-}
-
-/* row styled like the design (border-bottom, 2 columns) */
-.row {
-  float: right;
-  width: 90%;
-  height: 40px;
-  font-size: 1.2rem;
-  border-bottom: 1px solid #adf9ff;
-  margin-top: 5px;
-  color: white;
-  text-decoration: none;
-  display: block;
-
-  &:hover,
-  &:focus {
-    opacity: 0.9;
-    outline: none;
-  }
-}
-
-.rowRight {
-  float: right;
-  width: 60%;
+.rightColumn {
+  width: 25%;
+  position: relative;
+  /* required for absolute image */
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  /* crop overflow cleanly */
+  box-sizing: border-box;
+  margin-top: -50px;
+  margin-right: 50px;
 }
 
-.rowLeft {
-  float: left;
-  width: 29%;
-  text-align: left;
+.centerInner {
+  width: 100%;
+  max-width: 700px;
+}
+
+
+
+/* ===============================
+   IMAGE
+================================ */
+.astronaut {
+  // position: absolute;
+  inset: 0;
+  /* top:0 right:0 bottom:0 left:0 */
+  width: 100%;
+  // height: 100%;
+  object-fit: cover;
+  /* COVER the entire column */
+}
+
+/* ===============================
+   TYPOGRAPHY
+================================ */
+.header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
   color: #ffffff;
-  opacity: 0.9;
-  white-space: nowrap;
+  border-bottom: 1px solid #1e3560;
+  padding-bottom: 6px;
 }
 
-.info {
+.header2 {
   color: #adf9ff;
-  font-size: 1rem;
-  margin-top: 10px;
+  font-size: 26px;
+  height: 60px;
+}
+
+.header3 {
+  color: #adf9ff;
+  font-size: 46px;
+}
+
+.header4 {
+  color: #adf9ff;
+  font-size: 26px;
+  height: 60px;
+  margin-top: 90px;
+}
+
+/* ===============================
+   INFO / ERROR
+================================ */
+.info {
+  color: #b3c0d9;
+  font-size: 13px;
 }
 
 .error {
   color: #ff6b81;
-  font-size: 1rem;
-  margin-top: 10px;
+  font-size: 13px;
 }
 
-/* ===== responsive בסיסי כדי לא לשבור ===== */
-@media only screen and (max-width: 992px) {
-  .upperMenu {
-    height: auto;
-    padding-bottom: 10px;
+/* ===============================
+   LISTS
+================================ */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  direction: rtl;
+}
+
+.item {
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 10px;
+  text-decoration: none;
+  color: #f5f7fa;
+
+  &:hover {
+    background-color: rgba(77, 163, 255, 0.1);
+  }
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11px;
+  color: #9aa7c0;
+  flex: 0 0 auto;
+  margin-right: 8px;
+}
+
+.coursesContainer {
+  display: flex;
+  flex-direction: column; // 👈 top → down
+  gap: 12px; // space between items
+}
+
+
+.oneCourse {
+  float: right;
+  margin-left: 2%;
+  // height: 340px;
+  background-repeat: no-repeat;
+  background-position: top center;
+  cursor: pointer;
+  position: relative;
+}
+
+.courseName {
+  float: right;
+  width: 100%;
+  height: 36px;
+  margin-top: 222px;
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/semi_black_line.png');
+  background-repeat: no-repeat;
+  background-position: 43.3% top;
+  font-size: 1.1rem;
+  color: white;
+  text-align: center;
+  padding-top: 3px;
+  font-weight: bold;
+}
+
+/* ===============================
+   RESPONSIVE
+================================ */
+@media (max-width: 1100px) {
+
+  .pageLayout,
+  .pageGrid {
+    flex-direction: column;
   }
 
-  .logo {
+  .leftColumn,
+  .rightColumn {
+    flex: 0 0 auto;
+  }
+
+  .rightColumn {
+    order: -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .rightColumn {
+    display: none;
+  }
+
+  .centerColumn {
     width: 100%;
-    height: 120px;
   }
 
-  .slogen {
+  .leftColumn {
     width: 100%;
-    margin-top: 10px;
-    font-size: 1.66rem;
+    align-items: normal;
   }
 
-  .search {
-    width: 100%;
-    margin-top: 15px;
-  }
-
-  .searchInner {
-    width: 90%;
-  }
-
-  .coursesSection {
-    padding: 20px;
-  }
-
-  .columns {
-    display: block;
-  }
-
-  .col {
-    width: 100%;
-    margin-bottom: 35px;
-  }
-
-  .row {
-    width: 100%;
+  .header4 {
+    margin-top: 30px;
   }
 }

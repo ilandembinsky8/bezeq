@@ -2,18 +2,26 @@ import * as React from 'react';
 import styles from './BPersonalZone.module.scss';
 import type { IBPersonalZoneProps } from './IBPersonalZoneProps';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
+import TopNav from './topNav/TopNav';
 
 // ==== CONFIG – להתאים לפי הסביבה שלך ====
 
 // רשימת הסטטיסטיקות
 const LIST_TITLE = 'BezeqStatistics';
+// User field that stores the clicked user (update if internal name differs)
+
+//const CLICK_USER_FIELD = 'Author';
+
+// Date field for visit time (fallback to Modified if not a valid date)
+const CLICKED_AT_FIELD = 'Created';
 
 // רשימות מקור הדפים
-const DOMAINS_LIST_TITLE = 'תחום';      // רשימת התחומים
+// const DOMAINS_LIST_TITLE = 'תחום';      // רשימת התחומים
 const COURSES_LIST_TITLE = 'קורסים';    // רשימת הקורסים
+const COURSE_PHOTOS_LIBRARY = 'תמונות קורסים';
 
 // שם השדה של מילות המפתח בשתי הרשימות
-const KEYWORDS_FIELD = 'KeyWords';
+// const KEYWORDS_FIELD = 'KeyWords';
 
 // עמודות מזהות דף ב-BezeqStatistics
 const PAGE_ID_FIELD = 'PageID';         // מספר ה-ID ברשימת תחום/קורסים
@@ -28,12 +36,9 @@ const DOMAIN_QUERY_PARAM = 'SectionID';
 const COURSE_QUERY_PARAM = 'CourseID';
 
 // כמות פריטים
-const MAX_ITEMS = 10;
-const TOP_VISITS_FOR_RECS = 5;
-const MAX_RECOMMENDED = 10;
-
-// יעד החיפוש החדש
-const SEARCH_RESULTS_RELATIVE_URL = '/sites/Bmaster/SitePages/SearchResults.aspx?q=';
+const MAX_ITEMS = 4;
+// const TOP_VISITS_FOR_RECS = 5;
+// const MAX_RECOMMENDED = 2;
 
 // ==== TYPES ====
 
@@ -41,7 +46,8 @@ type RawStatItem = {
   Id: number;
   Title?: string;
   Link?: string;
-  Created: string;
+  Created?: any;
+  Modified?: string;
   Author?: { Id: number };
   PageID?: number;
   PageType?: string;
@@ -60,55 +66,77 @@ type DedupedVisit = {
   ref?: PageRef | null;
 };
 
-type SourceItem = PageRef & {
+type TopTitle = {
   title: string;
-  keywordsRaw: string;
+  count: number;
+  courseId?: number;
+  photoUrl?: string;
+  isVideo?: boolean;
 };
+
+// type SourceItem = PageRef & {
+//   title: string;
+//   keywordsRaw: string;
+// };
+
 
 type State = {
   loading: boolean;
   error?: string;
   items: DedupedVisit[];
   recommendations: DedupedVisit[];
-  searchText: string;
+  topTitles: TopTitle[];
 };
 
 export default class BPersonalZone extends React.Component<IBPersonalZoneProps, State> {
-  public state: State = {
-    loading: true,
-    items: [],
-    recommendations: [],
-    searchText: '',
-  };
+  public state: State = { loading: true, items: [], recommendations: [], topTitles: [] };
 
   public componentDidMount(): void {
-
     this.loadData().catch(err =>
       this.setState({ loading: false, error: (err as Error).message || 'Load error' })
     );
   }
 
-  // ================== SEARCH ==================
+  private async getSmallCoursePhotosByCourseIds(courseIds: number[]): Promise<Map<number, string>> {
+    const { context } = this.props;
+    const webUrl = context.pageContext.web.absoluteUrl;
 
-  private onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    this.setState({ searchText: e.target.value });
-  };
+    const cleanIds = Array.from(new Set(courseIds.filter(Boolean)));
+    if (cleanIds.length === 0) return new Map();
 
-  private goToSearch = () => {
-    const q = (this.state.searchText || '').trim();
-    if (!q) return;
+    // Build (courseName/Id eq X or courseName/Id eq Y)
+    // const idFilter = cleanIds.map(id => `courseName/Id eq ${id}`).join(' or ');
 
-    // חשוב: לפי הבקשה - תמיד /sites/Bmaster/...
-    const target = `${SEARCH_RESULTS_RELATIVE_URL}${encodeURIComponent(q)}`;
-    window.location.assign(target);
-  };
+    const url = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${COURSE_PHOTOS_LIBRARY}')/items` +
+      `?$select=Id,FileRef,courseName/Id` +
+      `&$expand=courseName` +
+      // `&$filter=photoType eq 'תמונה קטנה' and (${idFilter})` +
+      `&$filter=photoType eq 'תמונה קטנה'` +
+      `&$top=5000`
+    );
 
-  private onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      this.goToSearch();
+    const resp = await context.spHttpClient.get(
+      url,
+      SPHttpClient.configurations.v1
+    );
+
+    if (!resp.ok) return new Map();
+
+    const json = await resp.json();
+    const map = new Map<number, string>();
+
+    for (const r of json.value || []) {
+      const cid = r.courseName?.Id;
+      if (cid && !map.has(cid)) {
+        map.set(cid, r.FileRef); // one photo per course
+      }
     }
-  };
+
+    return map;
+  }
+
+
 
   // ================== LOAD MAIN DATA ==================
 
@@ -121,8 +149,6 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       `${webUrl}/_api/web/currentuser`,
       SPHttpClient.configurations.v1
     );
-
-    debugger;
     if (!meResp.ok) throw new Error(`Failed to get current user (${meResp.status})`);
     const me = await meResp.json();
     const myId: number = me?.Id;
@@ -148,6 +174,32 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     }
     const data = await listResp.json();
     const rows: RawStatItem[] = data?.value || [];
+    const topTitles = this.getTopTitles(rows, 3);
+    const courseTitleToId = await this.buildCourseTitleToIdMap();
+
+    for (const t of topTitles) {
+      const key = this.normalizeTitle(t.title);
+      const courseData = courseTitleToId.get(key);
+      if (courseData) {
+        t.courseId = courseData.id;
+        t.isVideo = courseData.isVideo;
+      }
+
+    }
+    console.log('Top titles with course IDs:', topTitles);
+    const courseIds = topTitles
+      .map(t => t.courseId)
+      .filter((id): id is number => !!id);
+
+    const coursePhotoMap = await this.getSmallCoursePhotosByCourseIds(courseIds);
+
+    // attach photo URL to topTitles
+    topTitles.forEach(t => {
+      if (t.courseId) {
+        (t as any).photoUrl = coursePhotoMap.get(t.courseId);
+      }
+    });
+
 
     // --- דה־דופ לפי כותרת (primary), ואם אין – לפי type+id או URL ---
     const seen = new Set<string>();
@@ -167,12 +219,19 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       }
 
       const rawUrl = (r.Link || '').trim();
-      const url = ref ? this.buildPageUrl(ref) : rawUrl;
+      const url = ref
+        ? this.buildPageUrl(ref)
+        : rawUrl;
 
       const rawTitle = (r.Title || '').trim();
 
+      // אם אין לא כותרת ולא URL – אין מה להציג
       if (!rawTitle && !url) continue;
 
+      // מפתח דה־דופ:
+      // 1. קודם כל לפי כותרת (case-insensitive)
+      // 2. אם אין כותרת – לפי type+id
+      // 3. ואם גם זה אין – לפי URL מנורמל
       const key =
         rawTitle
           ? rawTitle.toLowerCase()
@@ -186,7 +245,7 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       deduped.push({
         url: url || '',
         title: rawTitle || url || '(ללא כותרת)',
-        lastVisited: new Date(r.Created),
+        lastVisited: this.getVisitDate(r),
         ref,
       });
 
@@ -194,167 +253,207 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     }
 
     deduped.sort((a, b) => b.lastVisited.getTime() - a.lastVisited.getTime());
+
     const recommendations = await this.buildRecommendations(deduped);
 
-    this.setState({ loading: false, items: deduped, recommendations });
+    this.setState({ loading: false, items: deduped, recommendations, topTitles });
   }
+
 
   // ================== RECOMMENDATIONS ==================
 
-  private async buildRecommendations(recent: DedupedVisit[]): Promise<DedupedVisit[]> {
-    const seed = recent.slice(0, TOP_VISITS_FOR_RECS);
-    if (seed.length === 0) return [];
+  private async buildRecommendations(
+    recent: DedupedVisit[]
+  ): Promise<DedupedVisit[]> {
 
-    const recentKeys = new Set(seed.map(s => this.normalizeUrlForKey(s.url)));
+    // 1. קח רק 5 כניסות אחרונות של קורסים
+    const recentCourses = recent
+      .filter(r => r.ref?.type === 'course')
+      .slice(0, 5);
 
-    const seedRefs: PageRef[] = [];
-    for (const s of seed) {
-      if (s.ref) seedRefs.push(s.ref);
-      else {
-        const ref = this.parsePageRefFromUrl(s.url);
-        if (ref) seedRefs.push(ref);
-      }
-    }
-    if (seedRefs.length === 0) return [];
+    if (recentCourses.length === 0) return [];
 
-    const domainIds = seedRefs.filter(r => r.type === 'domain').map(r => r.id);
-    const courseIds = seedRefs.filter(r => r.type === 'course').map(r => r.id);
+    // 2. מפת הקורסים (כוללת section + visits)
+    const courseMap = await this.buildCourseTitleToIdMap();
 
-    const seedItems: SourceItem[] = [
-      ...await this.fetchItemsByIds(DOMAINS_LIST_TITLE, 'domain', domainIds),
-      ...await this.fetchItemsByIds(COURSES_LIST_TITLE, 'course', courseIds),
-    ];
+    // 3. ספור הופעות של תחומים
+    const sectionCount = new Map<number, number>();
 
-    const kwSet = new Set<string>();
-    for (const item of seedItems) {
-      const kws = this.parseKeywords(item.keywordsRaw || '');
-      for (const k of kws) kwSet.add(k);
-    }
-    if (kwSet.size === 0) return [];
+    for (const r of recentCourses) {
+      const course = courseMap.get(this.normalizeTitle(r.title));
+      if (!course?.sectionId) continue;
 
-    const allDomainItems = await this.fetchAllItems(DOMAINS_LIST_TITLE, 'domain');
-    const allCourseItems = await this.fetchAllItems(COURSES_LIST_TITLE, 'course');
-    const allItems: SourceItem[] = [...allDomainItems, ...allCourseItems];
-
-    const seedKeySet = new Set<string>(seedRefs.map(r => `${r.type}:${r.id}`));
-
-    type Cand = { source: SourceItem; overlap: number; key: string };
-    const candidates: Cand[] = [];
-
-    for (const item of allItems) {
-      const itemKey = `${item.type}:${item.id}`;
-      if (seedKeySet.has(itemKey)) continue;
-
-      const url = this.buildPageUrl(item);
-      const norm = this.normalizeUrlForKey(url);
-      if (recentKeys.has(norm)) continue;
-
-      const kws = this.parseKeywords(item.keywordsRaw || '');
-      let overlap = 0;
-      for (const kw of kws) if (kwSet.has(kw)) overlap++;
-
-      if (overlap > 0) {
-        candidates.push({ source: item, overlap, key: norm });
-      }
+      sectionCount.set(
+        course.sectionId,
+        (sectionCount.get(course.sectionId) || 0) + 1
+      );
     }
 
-    candidates.sort((a, b) => (b.overlap - a.overlap) || (b.source.id - a.source.id));
+    if (sectionCount.size === 0) return [];
 
-    const seenRec = new Set<string>();
-    const recommended: DedupedVisit[] = [];
+    // 4. התחום הדומיננטי
+    const dominantSectionId =
+      Array.from(sectionCount.entries())
+        .sort((a, b) => b[1] - a[1])[0][0];
 
-    for (const cand of candidates) {
-      if (seenRec.has(cand.key)) continue;
-      seenRec.add(cand.key);
+    // 5. שני הקורסים הכי נצפים באותו תחום
+    const topCourses =
+      Array.from(courseMap.values())
+        .filter(c => c.sectionId === dominantSectionId)
+        .sort((a, b) => b.visitsCount - a.visitsCount)
+        .slice(0, 2);
 
-      recommended.push({
-        url: this.buildPageUrl(cand.source),
-        title: cand.source.title,
-        lastVisited: new Date(),
-      });
-
-      if (recommended.length >= MAX_RECOMMENDED) break;
-    }
-
-    return recommended;
+    // 6. החזרה בפורמט DedupedVisit
+    return topCourses.map(c => ({
+      title: c.courseTitle,
+      url: this.buildPageUrl({ type: 'course', id: c.id }),
+      lastVisited: new Date()
+    }));
   }
+
 
   // ================== HELPERS – DATA FROM LISTS ==================
 
-  private async fetchItemsByIds(
-    listTitle: string,
-    type: 'domain' | 'course',
-    ids: number[]
-  ): Promise<SourceItem[]> {
+  private normalizeTitle(title: string): string {
+    return title
+      .trim()
+      .toLowerCase()
+      .replace(/[–—−]/g, '-') // מקפים חכמים
+      .replace(/\s+/g, ' ');  // רווחים כפולים
+  }
+
+  private async buildCourseTitleToIdMap(): Promise<
+    Map<
+      string,
+      {
+        id: number;
+        courseTitle: string;   // ✅ חובה
+        isVideo: boolean;
+        sectionTitle?: string;
+        sectionId?: number;
+        visitsCount: number;
+      }
+    >
+  > {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
-    const results: SourceItem[] = [];
-    const cleanIds = Array.from(new Set(ids.filter(id => !!id)));
-    if (cleanIds.length === 0) return [];
 
-    const groups = this.chunk(cleanIds, 15);
+    // ===============================
+    // 1. Load visits from BezeqStatistics
+    // ===============================
+    const statsUrl = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${LIST_TITLE}')/items` +
+      `?$select=PageID,PageType` +
+      `&$top=5000`
+    );
 
-    for (const g of groups) {
-      const orFilter = g.map(id => `Id eq ${id}`).join(' or ');
-      const select = `$select=Id,Title,${KEYWORDS_FIELD}`;
-      const filter = `$filter=(${orFilter})`;
-      const url = encodeURI(
-        `${webUrl}/_api/web/lists/getbytitle('${listTitle}')/items?${select}&${filter}&$top=500`
-      );
-      const resp = await context.spHttpClient.get(url, SPHttpClient.configurations.v1);
-      if (!resp.ok) continue;
-      const json = await resp.json();
-      const items = (json?.value || []) as any[];
+    const statsResp = await context.spHttpClient.get(
+      statsUrl,
+      SPHttpClient.configurations.v1
+    );
 
-      for (const it of items) {
-        results.push({
-          type,
-          id: it.Id,
-          title: (it.Title || '').trim() || '(ללא כותרת)',
-          keywordsRaw: (it[KEYWORDS_FIELD] || '').toString(),
+    const visitsCountByCourseId = new Map<number, number>();
+
+    if (statsResp.ok) {
+      const statsJson = await statsResp.json();
+
+      for (const row of statsJson.value || []) {
+        const pageType = (row.PageType || '').trim();
+        if (pageType !== 'קורס') continue;
+
+        const courseId = Number(row.PageID);
+        if (!courseId || isNaN(courseId)) continue;
+
+        visitsCountByCourseId.set(
+          courseId,
+          (visitsCountByCourseId.get(courseId) || 0) + 1
+        );
+      }
+    }
+
+    console.log('Visits map size:', visitsCountByCourseId.size);
+
+    // ===============================
+    // 2. Load courses list
+    // ===============================
+    const coursesUrl = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${COURSES_LIST_TITLE}')/items` +
+      `?$select=Id,Title,isVideo,theSection/Id,theSection/Title` +
+      `&$expand=theSection` +
+      `&$top=5000`
+    );
+
+    const resp = await context.spHttpClient.get(
+      coursesUrl,
+      SPHttpClient.configurations.v1
+    );
+
+    if (!resp.ok) return new Map();
+
+    const json = await resp.json();
+    const map = new Map<
+      string,
+      {
+        id: number;
+        courseTitle: string;   // ✅ להוסיף כאן
+        isVideo: boolean;
+        sectionTitle?: string;
+        sectionId?: number;
+        visitsCount: number;
+      }
+    >();
+
+    // ===============================
+    // 3. Build map: Title → Course data
+    // ===============================
+    for (const row of json.value || []) {
+      if (!row.Title || !row.Id) continue;
+
+      const sectionTitle = row.theSection?.Title;
+      const visitsCount = visitsCountByCourseId.get(row.Id) || 0;
+
+      map.set(this.normalizeTitle(row.Title), {
+        id: row.Id,
+        courseTitle: row.Title,   // ← להוסיף
+        isVideo: !!row.isVideo,
+        sectionId: row.theSection?.Id,
+        sectionTitle: row.theSection?.Title,
+        visitsCount
+      });
+
+
+
+      // DEBUG – verify match
+      if (visitsCount > 0) {
+        console.log('COURSE VISITS MATCH', {
+          courseId: row.Id,
+          title: row.Title,
+          sectionTitle,
+          visitsCount
         });
       }
     }
 
-    return results;
+    return map;
   }
 
-  private async fetchAllItems(listTitle: string, type: 'domain' | 'course'): Promise<SourceItem[]> {
-    const { context } = this.props;
-    const webUrl = context.pageContext.web.absoluteUrl;
-    const select = `$select=Id,Title,${KEYWORDS_FIELD}`;
-    const orderby = `$orderby=Id asc`;
-    const top = `$top=2000`;
-    const url = encodeURI(
-      `${webUrl}/_api/web/lists/getbytitle('${listTitle}')/items?${select}&${orderby}&${top}`
-    );
-    const resp = await context.spHttpClient.get(url, SPHttpClient.configurations.v1);
-    if (!resp.ok) return [];
-    const json = await resp.json();
-    const rows = (json?.value || []) as any[];
 
-    return rows.map(it => ({
-      type,
-      id: it.Id,
-      title: (it.Title || '').trim() || '(ללא כותרת)',
-      keywordsRaw: (it[KEYWORDS_FIELD] || '').toString(),
-    }));
-  }
+
 
   // ================== URL / KEYWORDS HELPERS ==================
 
-  private chunk<T>(arr: T[], size: number): T[][] {
-    const out: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-    return out;
-  }
+  // private chunk<T>(arr: T[], size: number): T[][] {
+  //   const out: T[][] = [];
+  //   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  //   return out;
+  // }
 
-  private parseKeywords(raw: string): string[] {
-    return raw
-      .split(/[;|,]/)
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean);
-  }
+  // private parseKeywords(raw: string): string[] {
+  //   return raw
+  //     .split(/[;|,]/)
+  //     .map(s => s.trim().toLowerCase())
+  //     .filter(Boolean);
+  // }
 
   private buildPageUrl(ref: PageRef): string {
     const base = this.props.context.pageContext.web.absoluteUrl.replace(/\/$/, '');
@@ -365,39 +464,39 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     return `${base}${pagePath}${separator}${paramName}=${encodeURIComponent(ref.id.toString())}`;
   }
 
-  private parsePageRefFromUrl(rawUrl: string): PageRef | null {
-    const base = this.props.context.pageContext.web.absoluteUrl;
-    try {
-      const u = new URL(rawUrl.trim(), base);
-      const pathname = u.pathname.toLowerCase();
+  // private parsePageRefFromUrl(rawUrl: string): PageRef | null {
+  //   const base = this.props.context.pageContext.web.absoluteUrl;
+  //   try {
+  //     const u = new URL(rawUrl.trim(), base);
+  //     const pathname = u.pathname.toLowerCase();
 
-      const isDomain = pathname.indexOf(DOMAIN_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
-      const isCourse = pathname.indexOf(COURSE_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
+  //     const isDomain = pathname.indexOf(DOMAIN_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
+  //     const isCourse = pathname.indexOf(COURSE_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
 
-      if (!isDomain && !isCourse) return null;
+  //     if (!isDomain && !isCourse) return null;
 
-      const params = u.searchParams;
-      if (isDomain) {
-        const idStr = params.get(DOMAIN_QUERY_PARAM);
-        if (!idStr) return null;
-        const id = parseInt(idStr, 10);
-        if (!id) return null;
-        return { type: 'domain', id };
-      }
+  //     const params = u.searchParams;
+  //     if (isDomain) {
+  //       const idStr = params.get(DOMAIN_QUERY_PARAM);
+  //       if (!idStr) return null;
+  //       const id = parseInt(idStr, 10);
+  //       if (!id) return null;
+  //       return { type: 'domain', id };
+  //     }
 
-      if (isCourse) {
-        const idStr = params.get(COURSE_QUERY_PARAM);
-        if (!idStr) return null;
-        const id = parseInt(idStr, 10);
-        if (!id) return null;
-        return { type: 'course', id };
-      }
+  //     if (isCourse) {
+  //       const idStr = params.get(COURSE_QUERY_PARAM);
+  //       if (!idStr) return null;
+  //       const id = parseInt(idStr, 10);
+  //       if (!id) return null;
+  //       return { type: 'course', id };
+  //     }
 
-      return null;
-    } catch {
-      return null;
-    }
-  }
+  //     return null;
+  //   } catch {
+  //     return null;
+  //   }
+  // }
 
   private normalizeUrlForKey(rawUrl: string): string {
     const base = this.props.context.pageContext.web.absoluteUrl;
@@ -420,111 +519,154 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const isSameDay = d.toDateString() === now.toDateString();
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
+    if (isSameDay) return `היום ${d.toLocaleTimeString()}`;
+    if (d.toDateString() === yesterday.toDateString()) return `אתמול ${d.toLocaleTimeString()}`;
+    return d.toLocaleString();
+  }
 
-    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  private getVisitDate(row: RawStatItem): Date {
+    const raw = (row as any)[CLICKED_AT_FIELD];
+    if (typeof raw === 'string' && !isNaN(Date.parse(raw))) return new Date(raw);
+    if (row.Modified && !isNaN(Date.parse(row.Modified))) return new Date(row.Modified);
+    if (typeof row.Created === 'string' && !isNaN(Date.parse(row.Created))) return new Date(row.Created);
+    return new Date(0);
+  }
 
-    if (isSameDay) return `היום ${time}`;
-    if (d.toDateString() === yesterday.toDateString()) return `אתמול ${time}`;
-    return d.toLocaleDateString('he-IL') + ' ' + time;
+  private getTopTitles(rows: RawStatItem[], limit: number): TopTitle[] {
+    const counts = new Map<string, TopTitle>();
+    for (const r of rows) {
+      const title = (r.Title || '').trim();
+      if (!title) continue;
+      const key = title.toLowerCase();
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(key, { title, count: 1 });
+      }
+    }
+
+    return Array.from(counts.values())
+      .sort((a, b) => (b.count - a.count) || a.title.localeCompare(b.title))
+      .slice(0, limit);
   }
 
   // ================== RENDER ==================
 
   public render(): React.ReactElement<IBPersonalZoneProps> {
-    const { loading, error, items, recommendations, searchText } = this.state;
+    const { loading, error, items, recommendations, topTitles } = this.state;
 
     return (
       <section className={styles.bPersonalZone}>
-        <div className={styles.containerBmaster}>
-        {/* HEADER NEW */}
-        <div className={styles.upperMenu}>
-          <div className={styles.logo} role="button" tabIndex={0} aria-label="Logo" />
-          <div className={styles.slogen}><img src="https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/slogen.png" className={styles.imgSlogen}/></div>
+        <TopNav context={this.props.context} />
 
-          <div className={styles.search}>
-            <div className={styles.searchInner}>
-              <div className={styles.micro} aria-hidden />
-              <div className={styles.inputWrap}>
-                <input
-                  type="text"
-                  value={searchText}
-                  onChange={this.onSearchChange}
-                  onKeyDown={this.onSearchKeyDown}
-                />
-              </div>
-              <div
-                className={styles.magni}
-                role="button"
-                tabIndex={0}
-                aria-label="Search"
-                onClick={this.goToSearch}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    this.goToSearch();
-                  }
-                }}
-              />
+        {/* HEADER — completely outside layout */}
+        <div className={styles.pageHeader}>
+          <div className={styles.courseTitle}>האזור האישי</div>
+          <div className={styles.topSeperator}></div>
+        </div>
+
+        {/* LAYOUT */}
+        <div className={styles.pageLayout}>
+          <div className={styles.rightColumn}>
+            <div className={styles.header3}>
+              איזור אישי
             </div>
+            <img
+              className={styles.astronaut}
+              src="https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/astronaut.png"
+              alt=""
+            />
           </div>
-        </div>
 
-        {/* TOP SEPARATOR + TITLE */}
-        <div className={styles.topSeperator}>
-          <div className={styles.inner1520}>
-            <div className={styles.rightCourses}>איזור אישי</div>
-          </div>
-        </div>
+          <div className={styles.centerColumn}>
+            <div className={styles.centerInner}>
+              <div className={styles.header2}>דפים אחרונים</div>
 
-        {/* CONTENT */}
-        <div className={styles.coursesSection}>
-          <div className={styles.inner1520}>
-            {loading && <div className={styles.info}>טוען…</div>}
-            {error && <div className={styles.error}>שגיאה: {error}</div>}
+              {loading && <div className={styles.info}>טוען…</div>}
+              {error && <div className={styles.error}>שגיאה: {error}</div>}
 
-            {!loading && !error && (
-              <div className={styles.columns}>
-                {/* RIGHT: LAST PAGES */}
-                <div className={styles.col}>
-                  <div className={styles.colTitle}>דפים אחרונים</div>
+              {!loading && !error && items.length === 0 && (
+                <div className={styles.info}>אין עדיין כניסות להצגה.</div>
+              )}
 
-                  {items.length === 0 ? (
-                    <div className={styles.info}>אין עדיין כניסות להצגה.</div>
-                  ) : (
-                    <div className={styles.rows}>
-                      {items.map((it, idx) => (
-                        <a key={`last-${idx}`} className={styles.row} href={it.url} target="_self" rel="noopener">
-                          <div className={styles.rowRight}>{it.title}</div>
-                          <div className={styles.rowLeft}>{this.formatDate(it.lastVisited)}</div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {!loading && !error && items.length > 0 && (
+                <ul className={styles.list}>
+                  {items.map((it, idx) => (
+                    <li key={idx} className={styles.item}>
+                      <a href={it.url} className={styles.link} target="_self" rel="noopener">
+                        <span className={styles.title}>{it.title}</span>
+                        <span className={styles.meta}>{this.formatDate(it.lastVisited)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                {/* LEFT: RECOMMENDED */}
-                <div className={styles.col}>
-                  <div className={styles.colTitle}>דפים מומלצים</div>
+              {!loading && !error && (
+                <>
+                  <div className={styles.header4}>
+                    דפים מומלצים
+                  </div>
 
                   {recommendations.length === 0 ? (
                     <div className={styles.info}>אין המלצות כרגע.</div>
                   ) : (
-                    <div className={styles.rows}>
+                    <ul className={styles.list}>
                       {recommendations.map((it, idx) => (
-                        <a key={`rec-${idx}`} className={styles.row} href={it.url} target="_self" rel="noopener">
-                          <div className={styles.rowRight}>{it.title}</div>
-                          <div className={styles.rowLeft} />
-                        </a>
+                        <li key={`rec-${idx}`} className={styles.item}>
+                          <a href={it.url} className={styles.link} target="_self" rel="noopener">
+                            <span className={styles.title}>{it.title}</span>
+                          </a>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
-                </div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className={styles.leftColumn}>
+            <div className={styles.header2}>
+              הכי נצפים
+            </div>
+
+            {!loading && !error && topTitles.length > 0 && (
+              <div className={styles.coursesContainer}>
+                {topTitles.map((t, idx) => (
+                  <div
+                    key={`${t.title}-${idx}`}
+                    className={styles.oneCourse}
+                    style={{
+                      backgroundImage: t.photoUrl ? `url('${t.photoUrl}')` : undefined
+                    }}
+                    onClick={() => {
+                      if (!t.courseId) return;
+
+                      if (t.isVideo) {
+                        window.location.href =
+                          `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${t.courseId}`;
+                      } else {
+                        window.location.href =
+                          `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${t.courseId}`;
+                      }
+                    }}
+                  >
+                    <div className={styles.courseName}>
+                      {t.title}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+
           </div>
-        </div>
+
+
         </div>
       </section>
+
+
     );
   }
 }
