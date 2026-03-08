@@ -47,7 +47,6 @@ export interface ICoursesSectionState {
         Link: string;
     };
     isSharing: boolean;
-
 }
 
 export default class CoursesSection extends React.Component<ICoursesSectionProps, ICoursesSectionState, {}> {
@@ -127,7 +126,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         this.closeIt(i.toString());
     };
 
-
     private async _getItems() {
         // 1️⃣ Fetch all main data in parallel
         const [items, sectionsItems, itemsPhotos] = await Promise.all([
@@ -162,7 +160,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
             likeCounts[section.ID] = sectionLikeResults[index];
         });
 
-
         // 3️⃣ Fetch all comment counts in parallel (for courses and sections)
         const courseCommentPromises = items.map((course) => this._getCommentsCount(course.ID, null));
         const sectionCommentPromises = sectionsItems.map((section) => this._getCommentsCount(null, section.ID));
@@ -186,7 +183,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         // 5️⃣ Fetch group members last (optional, since it can take a second)
         await this._logGroupMembers();
     }
-
 
     private async _logGroupMembers(): Promise<void> {
         try {
@@ -251,9 +247,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-
-
     private _getHtml(_ItemID: any) {
         let _htmlJSX = null;
         if (this.state.itemsPhotos.length > 0) {
@@ -263,6 +256,80 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 _htmlJSX = _fileURl[0].FileRef;
         }
         return _htmlJSX;
+    }
+
+    private extractTeudatZehutFromClaims(login: string): string | null {
+        if (!login) return null;
+        const match = login.match(/(\d{7,9})/);
+        return match ? match[1] : null;
+    }
+
+    private extractTeudatZehutFromUpn(login: string): string | null {
+        if (!login) return null;
+        const parts = login.split('|');
+        const lastPart = parts[parts.length - 1] || login;
+        const upn = lastPart.split('@')[0];
+        const match = upn.match(/^(\d{7,9})$/);
+        return match ? match[1] : null;
+    }
+
+    private async _logCourseClick(course: any, targetUrl: string): Promise<void> {
+        try {
+            const currentUser: any = await this._sp.web.currentUser();
+            const userName: string = currentUser.Title || '';
+            const loginName: string = currentUser.LoginName || '';
+
+            const tzFromClaims = this.extractTeudatZehutFromClaims(loginName);
+            const teudatZehut = tzFromClaims || this.extractTeudatZehutFromUpn(loginName);
+
+            let absoluteUrl: string;
+            if (targetUrl && (targetUrl.indexOf('http://') === 0 || targetUrl.indexOf('https://') === 0)) {
+                absoluteUrl = targetUrl;
+            } else {
+                const needsSlash = targetUrl && targetUrl.charAt(0) !== '/' ? '/' : '';
+                absoluteUrl = window.location.origin + needsSlash + targetUrl;
+            }
+
+            await this._sp.web.lists.getByTitle('BezeqStatistics').items.add({
+                Title: course.Title,
+                PageType: 'קורס',
+                UserNameText: userName,
+                Link: absoluteUrl,
+                PageID: String(course.ID),
+                Tas: teudatZehut || ''
+            });
+        } catch (error) {
+            console.error('❌ Error logging course click:', error);
+        }
+    }
+
+    private async _handleCourseClick(course: any): Promise<void> {
+        // דף וידאו פנימי - לא סופרים כאן
+        if (course.isVideo) {
+            window.location.href = `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${course.ID}`;
+            return;
+        }
+
+        // לינק חיצוני / אחר
+        if (course.otherLink && course.otherLink.trim() !== '') {
+            const targetUrl: string = course.otherLink;
+            const lower = targetUrl.toLowerCase();
+
+            const isInternalCountedPage =
+                lower.indexOf('onecourse.aspx') !== -1 ||
+                lower.indexOf('courses.aspx') !== -1 ||
+                lower.indexOf('videopage.aspx') !== -1;
+
+            if (!isInternalCountedPage) {
+                await this._logCourseClick(course, targetUrl);
+            }
+
+            window.location.href = targetUrl;
+            return;
+        }
+
+        // דף קורס פנימי רגיל - לא סופרים כאן
+        this._goToOneCourse(course.ID);
     }
 
     private _goToOneCourse(_ItemID: any) {
@@ -335,7 +402,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
     // Get total likes count
     private async _getLikesCount(
         courseId: number | null,
@@ -390,9 +456,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-
-
     // Fetch all users who liked a course or section
     private async _getLikedUsers(courseId: number | null, sectionId: number | null): Promise<void> {
         try {
@@ -410,17 +473,15 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
             const cleanHebrewName = (name: string): string => {
                 if (!name) return "";
                 return name
-                    .replace(/[A-Za-z*]/g, "")   // remove English letters and asterisks
-                    // .replace(/[-–]+/g, "")       // remove hyphens/dashes
-                    .replace(/\s{2,}/g, " ")     // collapse multiple spaces
-                    .replace(/[-–]\s*$/, "")       // remove only a trailing hyphen (and optional space)
+                    .replace(/[A-Za-z*]/g, "")
+                    .replace(/\s{2,}/g, " ")
+                    .replace(/[-–]\s*$/, "")
                     .trim();
             };
 
             const userNames = likes
                 .filter(l => l.likedBy)
                 .map(l => cleanHebrewName(l.likedBy.Title));
-
 
             this.setState({
                 likedUsers: userNames,
@@ -454,8 +515,8 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
             const cleanHebrewName = (name: string): string => {
                 if (!name) return "";
                 return name
-                    .replace(/[A-Za-z*]/g, "") // remove English letters and asterisks
-                    .replace(/\s{2,}/g, " ")   // collapse double spaces
+                    .replace(/[A-Za-z*]/g, "")
+                    .replace(/\s{2,}/g, " ")
                     .replace(/[-–]+/g, "")
                     .trim();
             };
@@ -464,7 +525,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                 author: cleanHebrewName(c.commentedBy?.Title || "לא ידוע"),
                 text: c.comment || ""
             }));
-
 
             this.setState({
                 commentsList: formattedComments,
@@ -475,7 +535,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
     // Close popup
     private _closeLikesPopup = (): void => {
         this.setState({ showLikesPopup: false, likedUsers: [] });
@@ -484,7 +543,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
     private _closeCommentsPopup = (): void => {
         this.setState({ showCommentsPopup: false, commentsList: [] });
     };
-
 
     // Open Comment Popup for a specific course or section
     private _openCommentPopup = (courseId: number | null, sectionId: number | null): void => {
@@ -590,9 +648,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         }
     }
 
-
-
-
     public render(): React.ReactElement<{}> {
         const _items: any[] = this.state.items;
         const _sectionsItems: any[] = this.state.sectionsItems;
@@ -632,17 +687,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                         id={`c${i + 1}`}
                                         className={`${styles.oneCourse} ${Course.isSoldOut ? styles.soldOut : ''}`}
                                         style={{ backgroundImage: `url('${this._getHtml(Course.ID)}')`, order: Course.position ?? 0 }}
-                                        onClick={() => {
-                                            if (Course.isVideo) {
-                                                window.location.href =
-                                                    `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${Course.ID}`;
-                                            } else if (Course.otherLink) {
-                                                window.location.href = Course.otherLink;
-                                            } else {
-                                                this._goToOneCourse(Course.ID);
-                                            }
-                                        }}
-
+                                        onClick={() => this._handleCourseClick(Course)}
                                     >
                                         {Course.isSoldOut && (
                                             <div className={styles.soldOutBanner}></div>
@@ -659,7 +704,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                             dangerouslySetInnerHTML={{ __html: Course.innerText1 }}
                                         >
                                             {/* {Course.innerText1}<br />{Course.innerText2}  */}
-
                                         </div>
 
                                         <div id={`f${i + 1}`} className={styles.smallButton} onClick={(e) => e.stopPropagation()}>
@@ -706,10 +750,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     >
                                                         {this.state.commentCounts[Course.ID] ?? 0}
                                                     </span>
-
                                                 </div>
-
-
 
                                                 <div className={styles.actionItem}>
                                                     <span
@@ -730,14 +771,12 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                                 await this._logGroupMembers();
                                                             }
                                                         }}
-
                                                     >
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-
                                 ))
                         )}
 
@@ -788,7 +827,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     >
                                                         {this.state.likeCounts[Course.ID] ?? 0}
                                                     </span>
-
                                                 </div>
 
                                                 <div className={styles.actionItem}>
@@ -813,8 +851,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     </span>
                                                 </div>
 
-
-
                                                 <div className={styles.actionItem}>
                                                     <span
                                                         className={`${styles.iconWrapper} ${styles.shareButton}`}
@@ -834,7 +870,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                                 await this._logGroupMembers();
                                                             }
                                                         }}
-
                                                     >
                                                     </span>
                                                 </div>
@@ -843,6 +878,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                     </div>
                                 ))
                         )}
+
                         {this.state.showLikesPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -859,7 +895,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                     </li>
                                                 ))}
                                             </ul>
-
                                         ) : (
                                             <p>ללא סימוני אהבתי</p>
                                         )}
@@ -867,6 +902,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                 </div>
                             </div>
                         )}
+
                         {this.state.showCommentPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -892,7 +928,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                 שלח
                                             </button>
 
-
                                             <button
                                                 className={styles.commentCancelBtn}
                                                 onClick={() =>
@@ -906,7 +941,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                             >
                                                 ביטול
                                             </button>
-
                                         </div>
                                     </div>
                                 </div>
@@ -936,6 +970,7 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                 </div>
                             </div>
                         )}
+
                         {this.state.showPeoplePickerPopup && (
                             <div className={styles.popupOverlay}>
                                 <div className={styles.popupContainer}>
@@ -971,7 +1006,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                         placeholder="חפש משתמש..."
                                                         value={this.state.searchText}
                                                         onChange={(e) => {
-                                                            const text = e.target.value.toLowerCase();
                                                             const search = e.target.value.toLowerCase();
 
                                                             // Rank results by relevance
@@ -989,8 +1023,8 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                                     if (bName === search && aName !== search) return 1;
 
                                                                     // Starts with search term next
-                                                                    const aStarts = aName.startsWith(search);
-                                                                    const bStarts = bName.startsWith(search);
+                                                                    const aStarts = aName.indexOf(search) === 0;
+                                                                    const bStarts = bName.indexOf(search) === 0;
                                                                     if (aStarts && !bStarts) return -1;
                                                                     if (bStarts && !aStarts) return 1;
 
@@ -999,7 +1033,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                                 });
 
                                                             this.setState({ searchText: e.target.value, filteredUsers: filtered });
-
                                                         }}
                                                     />
 
@@ -1024,8 +1057,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                             ))}
                                                         </ul>
                                                     )}
-
-
 
                                                     <div className={styles.selectedUsers}>
                                                         {this.state.selectedUsers.map((u, i) => (
@@ -1065,8 +1096,6 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                                         )}
                                                     </button>
 
-
-
                                                     <button
                                                         className={styles.commentCancelBtn}
                                                         onClick={() =>
@@ -1088,12 +1117,9 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
                                 </div>
                             </div>
                         )}
-
-
                     </div>
                 </div>
             </>
         );
     }
-
 }
