@@ -130,11 +130,11 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
         if (course.isVideo) {
             return `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${course.ID}`;
         }
-    
+
         if (course.otherLink && typeof course.otherLink === "string" && course.otherLink.trim() !== "") {
             return course.otherLink.trim();
         }
-    
+
         return `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${course.ID}`;
     }
 
@@ -318,16 +318,16 @@ export default class CoursesSection extends React.Component<ICoursesSectionProps
     private async _handleCourseClick(course: any): Promise<void> {
         const targetUrl = this._getCourseTargetUrl(course);
         const lower = targetUrl.toLowerCase();
-    
+
         const isInternalCountedPage =
             lower.indexOf('onecourse.aspx') !== -1 ||
             lower.indexOf('courses.aspx') !== -1 ||
             lower.indexOf('videopage.aspx') !== -1;
-    
+
         if (!isInternalCountedPage) {
             await this._logCourseClick(course, targetUrl);
         }
-    
+
         window.location.href = targetUrl;
     }
 
