@@ -2,6 +2,7 @@ import * as React from 'react';
 import styles from './BezeqStatistics.module.scss';
 import type { IBezeqStatisticsProps } from './IBezeqStatisticsProps';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
+import TopNav from '../../bPersonalZone/components/topNav/TopNav'; 
 
 type ReportType = 'byPage' | 'byUser';
 
@@ -56,7 +57,6 @@ interface State {
   pageAgg: PageAgg[];
   userAgg: UserAgg[];
 
-  // Drilldown לפי דף
   selectedPage?: string | null;
   selectedPageRows: Array<{
     fullName: string;
@@ -69,24 +69,19 @@ interface State {
   }>;
   selectedPageDailyStats: Array<{ date: string; total: number; uniqueUsers: number }>;
 
-  // Drilldown לפי משתמש
   selectedUser?: string | null;
   selectedUserRows: Array<{ page: string; total: number }>;
 
-  // Tooltip גרפים
   hoveredPoint?: HoveredPoint;
-
-  // Header search
-  searchText: string;
 }
 
 const LIST_TITLE = 'BezeqStatistics';
 const USER_TEXT_FIELD = 'UserNameText';
 const STATS_MANAGERS_GROUP_ID = 556;
 
-// יעד החיפוש החדש (כמו באזור האישי)
-const SEARCH_RESULTS_RELATIVE_URL = '/sites/Bmaster/SitePages/SearchResults.aspx?q=';
-
+const LEFT_PLACEHOLDER_IMAGE =
+  '/sites/Bmaster/SiteAssets/SitePages/Statistics/statisticLeft.png';
+  
 export default class BezeqStatistics extends React.Component<IBezeqStatisticsProps, State> {
   constructor(props: IBezeqStatisticsProps) {
     super(props);
@@ -108,8 +103,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       selectedPageDailyStats: [],
       selectedUser: null,
       selectedUserRows: [],
-      hoveredPoint: undefined,
-      searchText: ''
+      hoveredPoint: undefined
     };
   }
 
@@ -117,27 +111,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     this.loadData();
   }
 
-  // ================== HEADER SEARCH (כמו אזור אישי) ==================
-  private onSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    this.setState({ searchText: e.target.value });
-  };
-
-  private goToSearch = () => {
-    const q = (this.state.searchText || '').trim();
-    if (!q) return;
-
-    const target = `${SEARCH_RESULTS_RELATIVE_URL}${encodeURIComponent(q)}`;
-    window.location.assign(target);
-  };
-
-  private onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      this.goToSearch();
-    }
-  };
-
-  // -------- בדיקה אם המשתמש בקבוצת "מנהלי סטטיסטיקה" --------
   private async isCurrentUserStatsManager(): Promise<boolean> {
     try {
       const webUrl = this.props.context.pageContext.web.absoluteUrl;
@@ -156,10 +129,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     }
   }
 
-  /**
-   * ניסיון ראשון – פורמט Claims:
-   * i:0#.f|membership|123456789@tenant.com
-   */
   private extractTeudatZehutFromClaims(claimsName: string | undefined | null): string | null {
     if (!claimsName) return null;
 
@@ -181,10 +150,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     }
   }
 
-  /**
-   * ניסיון שני – פורמט UPN פשוט:
-   * 30006781@bezeq.com → לוקחים את מה שלפני ה־@
-   */
   private extractTeudatZehutFromUpn(upn: string | undefined | null): string | null {
     if (!upn) return null;
 
@@ -209,7 +174,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     return tzFromClaims || tzFromUpn;
   }
 
-  /** ייצוא "כניסות מפורט" (שורה לכל כניסה) ל-CSV (אקסל) */
   private exportVisitsDetailedToCsv = () => {
     const { rawItems, dateFrom, dateTo } = this.state;
 
@@ -230,7 +194,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       'תאריך כניסה'
     ];
 
-    // ✅ שינוי יחיד: מיון מהחדש לישן לפי Created (בלי שינויי ייצוא אחרים)
     const sortedItems = rawItems
       .slice()
       .sort((a, b) => new Date(b.Created).getTime() - new Date(a.Created).getTime());
@@ -293,7 +256,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     URL.revokeObjectURL(url);
   };
 
-  // -------- Data loading --------
   private async loadData(): Promise<void> {
     try {
       this.setState({ loading: true, error: null });
@@ -327,7 +289,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
 
       let rawItems = await this.fetchAll<RawItem>(baseUrl);
 
-      // סינון לפי היררכיה ניהולית – רק אם המשתמש אינו מנהל סטטיסטיקה
       if (!isStatsManager) {
         if (currentTz && currentTz.trim()) {
           const tzDigits = currentTz.trim();
@@ -374,7 +335,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     return all;
   }
 
-  // -------- Helpers --------
   private getUserKey(it: RawItem): string {
     const t = (it as any)[USER_TEXT_FIELD];
     if (t && typeof t === 'string' && t.trim()) return t.trim();
@@ -456,7 +416,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       .sort((a, b) => b.total - a.total || a.fullName.localeCompare(b.fullName, 'he'));
   }
 
-  /** פרטי כניסות לדף – על כל הטווח שנבחר */
   private buildDetailsForPage(page: string) {
     return this.state.rawItems
       .filter(it => (it.Title || 'ללא שם') === page)
@@ -482,7 +441,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
-  /** סטטיסטיקה יומית לדף */
   private buildDailyStatsForPage(page: string) {
     const { rawItems } = this.state;
     const map = new Map<string, { total: number; users: Set<string> }>();
@@ -531,7 +489,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     return arr;
   }
 
-  // -------- UI handlers --------
   private onChangeReport = (e: React.ChangeEvent<HTMLSelectElement>) =>
     this.setState({
       report: (e.target.value as ReportType) || 'byPage',
@@ -630,7 +587,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     const escapeCsv = (value: string) => {
       if (!value) return '';
       const mustQuote = /[",\n]/.test(value);
-      let v = value.replace(/"/g, '""');
+      const v = value.replace(/"/g, '""');
       return mustQuote ? `"${v}"` : v;
     };
 
@@ -655,7 +612,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     URL.revokeObjectURL(url);
   };
 
-  // -------- Charts (line charts + tooltip) --------
   private renderPageCharts(stats: Array<{ date: string; total: number; uniqueUsers: number }>) {
     const { hoveredPoint } = this.state;
 
@@ -822,7 +778,6 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
     );
   }
 
-  // -------- Renders --------
   private renderToolbar() {
     const { report, dateFrom, dateTo, loading } = this.state;
     return (
@@ -860,7 +815,7 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
             type="button"
             onClick={this.exportVisitsDetailedToCsv}
             disabled={!hasData}
-            title="ייצוא הדו&quot;ח לפי דף לאקסל"
+            title='ייצוא הדו"ח לפי דף לאקסל'
           >
             ⬇ ייצוא לאקסל
           </button>
@@ -999,23 +954,31 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
 
   private renderDetailsPanel() {
     const { selectedUser, selectedUserRows } = this.state;
-    if (!selectedUser) return null;
-
-    const closeBtn = (
-      <button
-        className={styles.button}
-        onClick={() => this.setState({ selectedUser: null, selectedUserRows: [] })}
-      >
-        סגור
-      </button>
-    );
-
+  
+    if (!selectedUser) {
+      return (
+        <div className={`${styles.panel} ${styles.leftPlaceholderPanel}`} role="region" aria-label="אזור תצוגה שמאלי">
+          <img
+            src={LEFT_PLACEHOLDER_IMAGE}
+            alt="Statistics"
+            className={styles.leftPlaceholderImage}
+          />
+        </div>
+      );
+    }
+  
     return (
       <div className={styles.panel} role="region" aria-label="פירוט לפי משתמש">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3>כניסות של משתמש: {selectedUser}</h3>
-          {closeBtn}
+          <button
+            className={styles.button}
+            onClick={() => this.setState({ selectedUser: null, selectedUserRows: [] })}
+          >
+            סגור
+          </button>
         </div>
+  
         <table className={styles.table}>
           <thead>
             <tr>
@@ -1025,13 +988,17 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
           </thead>
           <tbody>
             {selectedUserRows.length === 0 ? (
-              <tr><td colSpan={2}>אין כניסות למשתמש זה בטווח הנבחר</td></tr>
-            ) : selectedUserRows.map(r => (
-              <tr key={r.page}>
-                <td>{r.page}</td>
-                <td><span className={styles.badge}>{r.total}</span></td>
+              <tr>
+                <td colSpan={2}>אין כניסות למשתמש זה בטווח הנבחר</td>
               </tr>
-            ))}
+            ) : (
+              selectedUserRows.map(r => (
+                <tr key={r.page}>
+                  <td>{r.page}</td>
+                  <td><span className={styles.badge}>{r.total}</span></td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -1039,71 +1006,30 @@ export default class BezeqStatistics extends React.Component<IBezeqStatisticsPro
   }
 
   public render(): React.ReactElement<IBezeqStatisticsProps> {
-    const { report, error, searchText, loading } = this.state;
+    const { report, error } = this.state;
 
     return (
       <section className={styles.bezeqStatistics}>
         <div className={styles.containerBmaster}>
-          {/* HEADER NEW (כמו אזור אישי) */}
-          <div className={styles.upperMenu}>
-            <div className={styles.logo} role="button" tabIndex={0} aria-label="Logo" />
-            <div className={styles.slogen}>
-              <img
-                src="https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/slogen.png"
-                className={styles.imgSlogen}
-              />
-            </div>
+          <TopNav context={this.props.context} />
 
-            <div className={styles.search}>
-              <div className={styles.searchInner}>
-                <div className={styles.micro} aria-hidden />
-                <div className={styles.inputWrap}>
-                  <input
-                    type="text"
-                    value={searchText}
-                    onChange={this.onSearchChange}
-                    onKeyDown={this.onSearchKeyDown}
-                    placeholder=""
-                    disabled={loading}
-                  />
-                </div>
-                <div
-                  className={styles.magni}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Search"
-                  onClick={this.goToSearch}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      this.goToSearch();
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* TOP SEPARATOR + TITLE */}
           <div className={styles.topSeperator}>
             <div className={styles.inner1520}>
-              <div className={styles.rightCourses}>דו&quot;חות שימוש</div>
+              <div className={styles.rightCourses}>דו"חות שימוש</div>
             </div>
           </div>
 
-          {/* CONTENT */}
           <div className={styles.coursesSection}>
             <div className={styles.inner1520}>
               {this.renderToolbar()}
               {error && <div className={styles.error}>שגיאה: {error}</div>}
 
               <div className={styles.split}>
-                <div>{report === 'byPage' ? this.renderByPage() : this.renderByUser()}</div>
+                <div  className={styles.tableWrapper}>{report === 'byPage' ? this.renderByPage() : this.renderByUser()}</div>
                 <div>{this.renderDetailsPanel()}</div>
               </div>
             </div>
           </div>
-
         </div>
       </section>
     );

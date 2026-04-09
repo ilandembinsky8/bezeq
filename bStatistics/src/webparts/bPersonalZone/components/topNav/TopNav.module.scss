@@ -1,576 +1,647 @@
 @import '~@fluentui/react/dist/sass/References.scss';
 
 [data-automation-id="CanvasSection"] {
-    background-color: black !important;
+  background-color: black !important;
 }
 
 .bmaster {
-    overflow: hidden;
-    padding: 1em;
-    color: "[theme:bodyText, default: #323130]";
-    color: var(--bodyText);
+  overflow: hidden;
+  padding: 1em;
+  color: "[theme:bodyText, default: #323130]";
+  color: var(--bodyText);
 
-    &.teams {
-        font-family: $ms-font-family-fallbacks;
-    }
+  &.teams {
+    font-family: $ms-font-family-fallbacks;
+  }
 }
 
-
 .ContainerBmaster {
-    font-family: Calibri, Candara, Segoe, Segoe UI, Optima, Arial, sans-serif;
-    font-size: 18px;
-    margin: 0px;
-    padding: 0px;
-    height: 100vh;
-    width: 100%;
-    background-color: #000;
-    direction: rtl;
+  font-family: Calibri, Candara, Segoe, Segoe UI, Optima, Arial, sans-serif;
+  font-size: 18px;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100%;
+  background-color: #000;
+  direction: rtl;
 }
 
 div {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .imgSlogen {
-    width: 85%;
-    max-width: 500px;
+  width: 85%;
+  max-width: 500px;
+}
+
+.searchIcon {
+  height: 22px;
+  width: auto;
+  display: block;
+}
+
+.mobileSearchToggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hideOnMobileSearch {
 }
 
 .upperMenu {
-    float: right;
-    width: 100%;
-    height: 177px;
-    text-align: center;
+  float: right;
+  width: 100%;
+  min-height: 177px;
+  text-align: center;
 }
-
-.upperMenu .search .inner .managerButton {
-    float: left;
-    height: 32px;
-    padding: 0 10px;
-    margin-top: 15px;
-
-    background: transparent;
-    border: 1px solid #00ccff;
-    border-radius: 16px;
-
-    color: #00ccff;
-    font-size: 14px;
-    cursor: pointer;
-
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.upperMenu .search .inner .managerButton img {
-    width: 16px;
-    height: 16px;
-}
-
-.upperMenu .search .inner .managerButton:hover {
-    background: rgba(0, 204, 255, 0.15);
-}
-
-
 
 .upperMenu .logo {
-    float: right;
-    width: 33.33%;
-    cursor: pointer;
+  float: right;
+  width: 33.33%;
+  cursor: pointer;
+  margin-top: -30px;
+}
+
+.upperMenu .logo img {
+  max-width: 100%;
+  height: auto;
 }
 
 .upperMenu .slogen {
     float: right;
     width: 33.33%;
-    height: 100%;
-    font-size: 53px;
-    margin-top: 53px;
-    color: white
-}
+    min-height: 177px;
+    margin-top: 70px;
+    color: white;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
 
 .upperMenu .search {
-    float: right;
-    width: 33.33%;
-    height: 100%;
-    font-size: 53px;
-    margin-top: 68px;
-    color: white
+  float: right;
+  width: 33.33%;
+  min-height: 177px;
+  margin-top: 70px;
+  color: white;
+  display: flex;
+  justify-content: center;
 }
 
 .upperMenu .search .inner {
-    float: right;
-    width: 80%;
-    height: 40px;
-    border: 1px solid #AAAAAA;
-    border-radius: 20px;
-    background-color: white
+  width: 80%;
+  height: 40px;
+  border: 1px solid #aaaaaa;
+  border-radius: 20px;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
 
 .upperMenu .search .inner .micro {
-    float: right;
-    width: 10%;
-    height: 100%;
-    background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/micro.png');
-    background-position: center center;
-    background-repeat: no-repeat;
-    text-align: center;
-    cursor: pointer;
+  width: 10%;
+  height: 100%;
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/micro.png');
+  background-position: center center;
+  background-repeat: no-repeat;
+  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .upperMenu .search .inner .magni {
-    float: right;
-    width: 10%;
-    height: 100%;
-    background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/magni.png');
-    background-position: center center;
-    background-repeat: no-repeat;
-    text-align: center;
-    cursor: pointer;
+  width: 10%;
+  height: 100%;
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/magni.png');
+  background-position: center center;
+  background-repeat: no-repeat;
+  text-align: center;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .upperMenu .search .inner .input {
-    float: right;
-    width: 80%;
-    height: 100%;
-    text-align: center;
-    margin-top: -32px
+  width: 80%;
+  height: 100%;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  text-align: center;
 }
 
 .upperMenu .search .inner .input input {
-    width: 100%;
-    height: 30px;
-    border: 0px;
-    text-align: right
+  width: 100%;
+  height: 30px;
+  border: 0;
+  text-align: right;
+  outline: none;
+  padding: 0 8px;
+  font-size: 16px;
+  background: transparent;
 }
 
 .upperMenu .mobileMenu {
-    display: none;
+  display: none;
 }
 
 .upperMenu .mobileSearch {
-    display: none;
+  display: none;
 }
 
-/*topSeperator*/
+.managerButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 90px;
+  padding: 0;
+}
+
+.managerButton:hover {
+  opacity: 0.9;
+}
+
+.managerText {
+  color: #1ec9ff;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.managerIcon {
+  width: 62px;
+  height: auto;
+  display: block;
+}
+
+/* topSeperator */
 
 .topSeperator {
-    float: right;
-    width: 100%;
-    height: 50px;
-    padding-top: 10px;
-    border-top: 1px solid #5ce0e5;
+  float: right;
+  width: 100%;
+  height: 50px;
+  padding-top: 10px;
+  border-top: 1px solid #5ce0e5;
 }
 
 .topSeperator .right {
-    float: right;
-    width: 60%;
-    height: 20px;
-
+  float: right;
+  width: 60%;
+  height: 20px;
 }
 
 .topSeperator .center {
-    float: right;
-    width: 20%;
-    height: 20px;
-    text-align: center
+  float: right;
+  width: 20%;
+  height: 20px;
+  text-align: center;
 }
 
 .topSeperator .left {
-    float: right;
-    width: 20%;
-    height: 20px;
-    margin-top: 20px;
-
+  float: right;
+  width: 20%;
+  height: 20px;
+  margin-top: 20px;
 }
 
 .topSeperator .right_courses {
-    float: right;
-    margin-left: 20px;
-    height: 20px;
-    color: white;
-    font-size: 1.5rem;
+  float: right;
+  margin-left: 20px;
+  height: 20px;
+  color: white;
+  font-size: 1.5rem;
 }
 
 .topSeperator .center_courses {
-    float: right;
-    height: 54px;
-    width: 428px;
-    text-align: center;
-    color: white;
-    font-size: 1.5rem;
-    text-align: right;
-    background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/arrow_new.png');
-    background-repeat: no-repeat;
-    background-position: right bottom;
-    background-size: 100% 24px;
-
+  float: right;
+  height: 54px;
+  width: 428px;
+  text-align: center;
+  color: white;
+  font-size: 1.5rem;
+  text-align: right;
+  background-image: url('https://bezeq365.sharepoint.com/sites/Bmaster/SiteAssets/Bmaster/cut/arrow_new.png');
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  background-size: 100% 24px;
 }
 
 .topSeperator .left_courses {
-    float: right;
-    width: 30%;
-    height: 20px;
-    margin-top: 20px;
-
+  float: right;
+  width: 30%;
+  height: 20px;
+  margin-top: 20px;
 }
 
 .topSeperator .right_oneCourse {
-    float: right;
-    width: 20%;
-    height: 20px;
-
+  float: right;
+  width: 20%;
+  height: 20px;
 }
 
 .topSeperator .center_oneCourse {
-    float: right;
-    width: 30%;
-    height: 20px;
-    text-align: center
+  float: right;
+  width: 30%;
+  height: 20px;
+  text-align: center;
 }
 
 .topSeperator .left_oneCourse {
-    float: right;
-    width: 50%;
-    height: 20px;
-    margin-top: 20px;
-    border-top: 2px solid white
+  float: right;
+  width: 50%;
+  height: 20px;
+  margin-top: 20px;
+  border-top: 2px solid white;
 }
 
-
-
 @media only screen and (max-width: 1800px) {
-    .topSeperator .right_courses {
-        width: 35%;
+  .topSeperator .right_courses {
+    width: 35%;
+  }
 
-    }
-
-    .topSeperator .center_courses {
-        width: 35%;
-
-    }
-
-
+  .topSeperator .center_courses {
+    width: 35%;
+  }
 }
 
 @media only screen and (max-width: 1600px) {
-    .slideShow .inner {
-        width: 1280px;
+  .slideShow .inner {
+    width: 1280px;
+  }
 
-    }
+  .topSeperator .right_courses {
+    width: 28%;
+  }
 
-    .topSeperator .right_courses {
-        width: 28%;
-    }
+  .topSeperator .center_courses {
+    width: 42%;
+  }
 
-    .topSeperator .center_courses {
-        width: 42%;
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 1280px;
+  }
 
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 1280px
-    }
-
-    .coursesSection .oneCourse {
-        width: 25%;
-    }
-
-
+  .coursesSection .oneCourse {
+    width: 25%;
+  }
 }
 
 @media only screen and (max-width: 1280px) {
-    .slideShow .inner {
-        width: 992px;
-    }
+  .slideShow .inner {
+    width: 992px;
+  }
 
-    .sections {
-        height: 576px;
-    }
+  .sections {
+    height: 576px;
+  }
 
-    .sections .inner .oneItem {
-        width: 56%;
-        margin-right: -6%;
-        background-size: auto 100%;
-        height: 45%;
-        margin-bottom: 5%;
-    }
+  .sections .inner .oneItem {
+    width: 56%;
+    margin-right: -6%;
+    background-size: auto 100%;
+    height: 45%;
+    margin-bottom: 5%;
+  }
 
-    .sections .inner .oneItem .text {
-        text-align: center;
-    }
+  .sections .inner .oneItem .text {
+    text-align: center;
+  }
 
-    .topSeperator .right_courses {
-        width: 25%;
-    }
+  .topSeperator .right_courses {
+    width: 25%;
+  }
 
-    .topSeperator .center_courses {
-        width: 55%;
-    }
+  .topSeperator .center_courses {
+    width: 55%;
+  }
 
-    .topSeperator .left_courses {
-        width: 20%;
-    }
+  .topSeperator .left_courses {
+    width: 20%;
+  }
 
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 992px
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 992px;
+  }
 
-    .coursesSection .oneCourse {
-        width: 33.33%;
-    }
+  .coursesSection .oneCourse {
+    width: 33.33%;
+  }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+  .coursesSection .smallButton {
+    padding-right: 85px;
+  }
 }
 
 @media only screen and (max-width: 992px) {
-    .ContainerBmaster {
-        background-image: none;
-        background-color: #000033;
-    }
+  .ContainerBmaster {
+    background-image: none;
+    background-color: #000033;
+  }
 
-    .upperMenu {
-        height: 255px;
-    }
+  .upperMenu {
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 20px;
+    float: none;
+  }
 
-    .upperMenu .logo {
-        width: 100%;
-        height: 50%;
-    }
+  .upperMenu .logo {
+    width: 100%;
+    height: auto;
+    margin-top: 0;
+    float: none;
+  }
 
-    .upperMenu .slogen {
-        width: 70%;
-        height: 80%;
-        font-size: 1.66rem;
-    }
+  .upperMenu .slogen {
+    width: 100%;
+    min-height: auto;
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    float: none;
+  }
 
-    .upperMenu .search {
-        float: right;
-        font-size: 53px;
-        height: auto;
-        margin-top: 0px;
-        /* width: 33.33%; */
-        margin-top: -100px;
-        position: relative;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-    }
+  .upperMenu .search {
+    width: 100%;
+    min-height: auto;
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    float: none;
+  }
 
+  .upperMenu .search .inner {
+    width: 90%;
+    max-width: 420px;
+  }
 
-    .upperMenu .mobileMenu,
-    .upperMenu .mobileSearch {
-        display: inline;
-        float: right;
-        width: 15%;
-        text-align: center;
-        margin-top: 50px
-    }
+  .upperMenu .mobileMenu,
+  .upperMenu .mobileSearch {
+    display: inline;
+    float: right;
+    width: 15%;
+    text-align: center;
+    margin-top: 50px;
+  }
 
-    .topSeperator {
-        border-bottom: 1px solid #FFFFFF;
-    }
+  .topSeperator {
+    border-bottom: 1px solid #ffffff;
+  }
 
-    .topSeperator .right,
-    .topSeperator .left,
-    .topSeperator .right_courses,
-    .topSeperator .left_courses {
-        display: none;
-    }
+  .topSeperator .right,
+  .topSeperator .left,
+  .topSeperator .right_courses,
+  .topSeperator .left_courses {
+    display: none;
+  }
 
-    .topSeperator .center,
-    .topSeperator .center_courses {
-        float: none;
-        margin: 0px auto;
-        width: 70%;
-        height: 60px;
-        background-color: #000033;
-    }
+  .topSeperator .center,
+  .topSeperator .center_courses {
+    float: none;
+    margin: 0 auto;
+    width: 70%;
+    height: 60px;
+    background-color: #000033;
+  }
 
-    .topSeperator .center_courses .text {
-        display: none;
-    }
+  .topSeperator .center_courses .text {
+    display: none;
+  }
 
-    .slideShow {
-        height: auto;
-    }
+  .slideShow {
+    height: auto;
+  }
 
-    .slideShow .inner {
-        width: 90%;
-    }
+  .slideShow .inner {
+    width: 90%;
+  }
 
-    .slideShow .inner .left {
-        width: 100%;
-    }
+  .slideShow .inner .left {
+    width: 100%;
+  }
 
-    .slideShow .inner .left .rightArrow {
-        display: none
-    }
+  .slideShow .inner .left .rightArrow {
+    display: none;
+  }
 
-    .slideShow .inner .left .images {
-        width: 100%;
-    }
+  .slideShow .inner .left .images {
+    width: 100%;
+  }
 
-    .slideShow .inner .left .images .gallery .oneImage .text {
-        width: 100%;
-    }
+  .slideShow .inner .left .images .gallery .oneImage .text {
+    width: 100%;
+  }
 
-    .slideShow .inner .left .leftArrow {
-        display: none
-    }
+  .slideShow .inner .left .leftArrow {
+    display: none;
+  }
 
-    .slideShow .inner .right {
-        width: 100%;
-    }
+  .slideShow .inner .right {
+    width: 100%;
+  }
 
-    .sections {
-        height: auto;
-    }
+  .sections {
+    height: auto;
+  }
 
-    .sections .inner {
-        width: 100%;
-    }
+  .sections .inner {
+    width: 100%;
+  }
 
-    .sections .inner .oneItem {
-        width: 100%;
-        height: 288px;
-        margin-bottom: 20px;
-        background-position: center top;
-    }
+  .sections .inner .oneItem {
+    width: 100%;
+    height: 288px;
+    margin-bottom: 20px;
+    background-position: center top;
+  }
 
-    .sections .inner .oneItem .text {
-        margin-right: -10%;
-    }
+  .sections .inner .oneItem .text {
+    margin-right: -10%;
+  }
 
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 720px
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 720px;
+  }
 
-    .coursesSection .oneCourse {
-        width: 50%;
-    }
+  .coursesSection .oneCourse {
+    width: 50%;
+  }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+  .coursesSection .smallButton {
+    padding-right: 85px;
+  }
 
-    .coursesSection .right {
-        width: 100%;
-        margin-top: 50px;
-    }
+  .coursesSection .right {
+    width: 100%;
+    margin-top: 50px;
+  }
 
-    .coursesSection .left {
-        width: 100%;
-
-        text-align: center;
-    }
+  .coursesSection .left {
+    width: 100%;
+    text-align: center;
+  }
 }
 
-
 @media only screen and (max-width: 768px) {
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 600px
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 600px;
+  }
 
-    .coursesSection .oneCourse {
-        width: 50%;
+  .upperMenu {
+    position: relative;
+  }
 
-    }
+  .mobileSearchToggle {
+    display: block;
+    position: absolute;
+    left: 15px;
+    top: 150px;
+    background: none;
+    border: none;
+    z-index: 5;
+  }
 
-    .coursesSection .smallButton {
-        padding-right: 85px;
-    }
+  .upperMenu .slogen {
+    gap: 14px;
+  }
+
+  .managerIcon {
+    width: 54px;
+  }
+
+  .managerText {
+    font-size: 13px;
+  }
+
+  .coursesSection .oneCourse {
+    width: 50%;
+  }
+
+  .coursesSection .smallButton {
+    padding-right: 85px;
+  }
 }
 
 @media only screen and (max-width: 640px) {
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 450px
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 450px;
+  }
 
-    .coursesSection .oneCourse {
-        width: 50%;
-        background-size: 100%;
-        height: 220px;
+  .coursesSection .oneCourse {
+    width: 50%;
+    background-size: 100%;
+    height: 220px;
+  }
 
-    }
+  .coursesSection .courseName {
+    margin-top: 70px;
+    font-size: 0.8rem;
+  }
 
-    .coursesSection .courseName {
-        margin-top: 70px;
-        font-size: 0.8rem
-    }
+  .coursesSection .smallButton {
+    background-size: 90%;
+    margin-top: 50px;
+    font-size: 0.8rem;
+    padding-right: 155px;
+  }
 
-    .coursesSection .smallButton {
-        background-size: 90%;
-        margin-top: 50px;
-        font-size: 0.8rem
-    }
+  .upperMenu .search .inner .micro {
+    display: none;
+  }
 
-    .coursesSection .smallButton {
-        padding-right: 155px;
-    }
+  .upperMenu .search .inner .input {
+    width: 90%;
+    margin-right: 10px;
+  }
 
-    .upperMenu .search .inner .micro {
-        display: none;
-    }
+  .upperMenu .search .inner .magni {
+    width: 10%;
+  }
 
-    .upperMenu .search .inner .input {
-        margin-right: 10px;
-    }
+  .upperMenu .slogen {
+    gap: 10px;
+  }
 
-    .upperMenu {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-    }
+  .managerButton {
+    min-width: 78px;
+  }
 
+  .managerIcon {
+    width: 46px;
+  }
+
+  .managerText {
+    font-size: 12px;
+  }
 }
 
 @media only screen and (max-width: 480px) {
-    .coursesSection .inner {
-        margin: 0px auto;
-        width: 300px
-    }
+  .coursesSection .inner {
+    margin: 0 auto;
+    width: 300px;
+  }
 
-    .coursesSection .oneCourse {
-        width: 50%;
-    }
+  .coursesSection .oneCourse {
+    width: 50%;
+  }
 
-    .coursesSection .smallButton {
-        padding-right: 15px;
-    }
+  .coursesSection .smallButton {
+    padding-right: 15px;
+  }
 
-    .coursesSection .right .buttons .inner {
-        width: 90%;
-        float: right;
-    }
+  .coursesSection .right .buttons .inner {
+    width: 90%;
+    float: right;
+  }
 
-    .upperMenu .search {
-        display: none;
-    }
+  .upperMenu .search {
+    display: none;
+  }
 
-    .upperMenu .search.mobileVisible {
-        float: right;
-        font-size: 53px;
-        height: auto;
-        margin-top: 0px;
-        /* width: 33.33%; */
-        margin-top: -165px;
-        position: relative;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-    }
+  .upperMenu .search.mobileVisible {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 15px;
+    float: none;
+    min-height: auto;
+    position: relative;
+  }
 
+  .upperMenu .search.mobileVisible .inner {
+    width: 90%;
+  }
+
+  .hideOnMobileSearch {
+    display: none !important;
+  }
+
+  .upperMenu .slogen {
+    margin-top: 10px;
+  }
 }
-
 
 div[id="sp-appBar"],
 div[id="spSiteHeader"] {
-    display: none !important;
+  display: none !important;
 }

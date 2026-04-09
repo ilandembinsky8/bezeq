@@ -4,28 +4,17 @@ import type { IBPersonalZoneProps } from './IBPersonalZoneProps';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import TopNav from './topNav/TopNav';
 
-// ==== CONFIG – להתאים לפי הסביבה שלך ====
-
-// רשימת הסטטיסטיקות
 const LIST_TITLE = 'BezeqStatistics';
-// User field that stores the clicked user (update if internal name differs)
-
-//const CLICK_USER_FIELD = 'Author';
-
-// Date field for visit time (fallback to Modified if not a valid date)
 const CLICKED_AT_FIELD = 'Created';
-
-// רשימות מקור הדפים
-// const DOMAINS_LIST_TITLE = 'תחום';      // רשימת התחומים
-const COURSES_LIST_TITLE = 'קורסים';    // רשימת הקורסים
+const COURSES_LIST_TITLE = 'קורסים';
 const COURSE_PHOTOS_LIBRARY = 'תמונות קורסים';
+const CYCLES_LIST_TITLE = 'מחזורים';
+const CYCLE_START_DATE_FIELD = 'startDate';
 
-// שם השדה של מילות המפתח בשתי הרשימות
-// const KEYWORDS_FIELD = 'KeyWords';
+const PAGE_ID_FIELD = 'PageID';
+const PAGE_TYPE_FIELD = 'PageType';
 
-// עמודות מזהות דף ב-BezeqStatistics
-const PAGE_ID_FIELD = 'PageID';         // מספר ה-ID ברשימת תחום/קורסים
-const PAGE_TYPE_FIELD = 'PageType';     // "תחום" / "קורס"
+const CYCLE_COURSE_NAME_FIELD = 'courseName';
 
 // כתובות הדפים
 const DOMAIN_PAGE_RELATIVE_URL = '/SitePages/Courses.aspx';
@@ -35,10 +24,8 @@ const COURSE_PAGE_RELATIVE_URL = '/SitePages/OneCourse.aspx';
 const DOMAIN_QUERY_PARAM = 'SectionID';
 const COURSE_QUERY_PARAM = 'CourseID';
 
-// כמות פריטים
-const MAX_ITEMS = 4;
-// const TOP_VISITS_FOR_RECS = 5;
-// const MAX_RECOMMENDED = 2;
+// כמות פריטים ברירת מחדל בתצוגה המקוצרת
+const INITIAL_VISIBLE_ITEMS = 4;
 
 // ==== TYPES ====
 
@@ -69,16 +56,21 @@ type DedupedVisit = {
 type TopTitle = {
   title: string;
   count: number;
+  link?: string;
   courseId?: number;
   photoUrl?: string;
   isVideo?: boolean;
 };
 
-// type SourceItem = PageRef & {
-//   title: string;
-//   keywordsRaw: string;
-// };
-
+type CourseMapItem = {
+  id: number;
+  courseTitle: string;
+  isVideo: boolean;
+  sectionTitle?: string;
+  sectionId?: number;
+  visitsCount: number;
+  link?: string;
+};
 
 type State = {
   loading: boolean;
@@ -86,10 +78,19 @@ type State = {
   items: DedupedVisit[];
   recommendations: DedupedVisit[];
   topTitles: TopTitle[];
+  showAllRecent: boolean;
+  showAllRecommendations: boolean;
 };
 
 export default class BPersonalZone extends React.Component<IBPersonalZoneProps, State> {
-  public state: State = { loading: true, items: [], recommendations: [], topTitles: [] };
+  public state: State = {
+    loading: true,
+    items: [],
+    recommendations: [],
+    topTitles: [],
+    showAllRecent: false,
+    showAllRecommendations: false
+  };
 
   public componentDidMount(): void {
     this.loadData().catch(err =>
@@ -102,106 +103,155 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const webUrl = context.pageContext.web.absoluteUrl;
 
     const cleanIds = Array.from(new Set(courseIds.filter(Boolean)));
-    if (cleanIds.length === 0) return new Map();
-
-    // Build (courseName/Id eq X or courseName/Id eq Y)
-    // const idFilter = cleanIds.map(id => `courseName/Id eq ${id}`).join(' or ');
+    if (cleanIds.length === 0) return new Map<number, string>();
 
     const url = encodeURI(
       `${webUrl}/_api/web/lists/getbytitle('${COURSE_PHOTOS_LIBRARY}')/items` +
       `?$select=Id,FileRef,courseName/Id` +
       `&$expand=courseName` +
-      // `&$filter=photoType eq 'תמונה קטנה' and (${idFilter})` +
       `&$filter=photoType eq 'תמונה קטנה'` +
       `&$top=5000`
     );
 
-    const resp = await context.spHttpClient.get(
+    const resp: SPHttpClientResponse = await context.spHttpClient.get(
       url,
       SPHttpClient.configurations.v1
     );
 
-    if (!resp.ok) return new Map();
+    if (!resp.ok) return new Map<number, string>();
 
-    const json = await resp.json();
+    const json: any = await resp.json();
     const map = new Map<number, string>();
 
     for (const r of json.value || []) {
       const cid = r.courseName?.Id;
       if (cid && !map.has(cid)) {
-        map.set(cid, r.FileRef); // one photo per course
+        map.set(cid, r.FileRef);
       }
     }
 
     return map;
   }
 
+  private async fetchAllItems(apiUrl: string): Promise<any[]> {
+    const { context } = this.props;
+    let nextUrl: string | undefined = apiUrl;
+    const allItems: any[] = [];
 
+    while (nextUrl) {
+      const resp: SPHttpClientResponse = await context.spHttpClient.get(
+        nextUrl,
+        SPHttpClient.configurations.v1
+      );
 
-  // ================== LOAD MAIN DATA ==================
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Failed to load items: ${resp.status} - ${text}`);
+      }
+
+      const json: any = await resp.json();
+      const currentItems: any[] = json?.value || json?.d?.results || [];
+      allItems.push(...currentItems);
+
+      nextUrl = json?.['@odata.nextLink'] || json?.d?.__next;
+    }
+
+    return allItems;
+  }
 
   private async loadData(): Promise<void> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
 
-    // --- current user ---
-    const meResp = await context.spHttpClient.get(
+    const meResp: SPHttpClientResponse = await context.spHttpClient.get(
       `${webUrl}/_api/web/currentuser`,
       SPHttpClient.configurations.v1
     );
-    if (!meResp.ok) throw new Error(`Failed to get current user (${meResp.status})`);
-    const me = await meResp.json();
-    const myId: number = me?.Id;
-    if (!myId) throw new Error('Cannot resolve current user id');
 
-    // --- load last visits from BezeqStatistics ---
-    const select = `$select=Id,Title,Link,Created,Author/Id,${PAGE_ID_FIELD},${PAGE_TYPE_FIELD}`;
-    const expand = `$expand=Author`;
-    const filter = `$filter=Author/Id eq ${myId}`;
-    const orderby = `$orderby=Created desc`;
-    const top = `$top=500`;
-    const apiUrl = encodeURI(
-      `${webUrl}/_api/web/lists/getbytitle('${LIST_TITLE}')/items?${select}&${expand}&${filter}&${orderby}&${top}`
-    );
-
-    const listResp: SPHttpClientResponse = await context.spHttpClient.get(
-      apiUrl,
-      SPHttpClient.configurations.v1
-    );
-    if (!listResp.ok) {
-      const text = await listResp.text();
-      throw new Error(`Failed to load list items: ${listResp.status} - ${text}`);
+    if (!meResp.ok) {
+      throw new Error(`Failed to get current user (${meResp.status})`);
     }
-    const data = await listResp.json();
-    const rows: RawStatItem[] = data?.value || [];
-    const topTitles = this.getTopTitles(rows, 3);
+
+    const me: any = await meResp.json();
+    const myId: number = me?.Id;
+
+    if (!myId) {
+      throw new Error('Cannot resolve current user id');
+    }
+
+    // דפים אחרונים + מומלצים = לפי המשתמש
+    const userStatsUrl = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${LIST_TITLE}')/items` +
+      `?$select=Id,Title,Link,Created,Modified,Author/Id,${PAGE_ID_FIELD},${PAGE_TYPE_FIELD}` +
+      `&$expand=Author` +
+      `&$filter=Author/Id eq ${myId}` +
+      `&$orderby=Created desc` +
+      `&$top=5000`
+    );
+
+    const rows: RawStatItem[] = await this.fetchAllItems(userStatsUrl);
+
+    // הכי נצפים = גלובלי, רק קורסים
+    const globalCourseStatsUrl = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${LIST_TITLE}')/items` +
+      `?$select=Id,Title,Link,Created,Modified,${PAGE_ID_FIELD},${PAGE_TYPE_FIELD}` +
+      `&$filter=${PAGE_TYPE_FIELD} eq 'קורס'` +
+      `&$orderby=Created desc` +
+      `&$top=5000`
+    );
+
+    const globalCourseRows: RawStatItem[] = await this.fetchAllItems(globalCourseStatsUrl);
+
+    // קורסים שיש להם לפחות מחזור עתידי אחד
+    const futureCourseTitleSet = await this.getFutureCourseTitleSet();
+
+    // כל הקורסים מרשימת קורסים + נתונים משלימים
     const courseTitleToId = await this.buildCourseTitleToIdMap();
 
+    debugger;
+
+    // סט ביניים: רק כותרות שנמצאות גם ברשימת קורסים וגם ברשימת מחזורים עתידיים
+    const validCourseTitles = new Set<string>(
+      Array.from(courseTitleToId.keys()).filter(titleKey => futureCourseTitleSet.has(titleKey))
+    );
+
+    debugger
+    const futureCourseStats = globalCourseRows.filter(r => {
+      const titleKey = this.normalizeTitle(r.Title || '');
+      return !!titleKey && validCourseTitles.has(titleKey);
+    });
+
+    debugger
+    const topTitles = this.getTopTitles(futureCourseStats, 3);
+
+    debugger
     for (const t of topTitles) {
       const key = this.normalizeTitle(t.title);
       const courseData = courseTitleToId.get(key);
+
       if (courseData) {
         t.courseId = courseData.id;
         t.isVideo = courseData.isVideo;
-      }
 
+        if (!t.link && courseData.link) {
+          t.link = courseData.link;
+        }
+      }
     }
-    console.log('Top titles with course IDs:', topTitles);
+
     const courseIds = topTitles
       .map(t => t.courseId)
       .filter((id): id is number => !!id);
 
     const coursePhotoMap = await this.getSmallCoursePhotosByCourseIds(courseIds);
 
-    // attach photo URL to topTitles
     topTitles.forEach(t => {
       if (t.courseId) {
-        (t as any).photoUrl = coursePhotoMap.get(t.courseId);
+        t.photoUrl = coursePhotoMap.get(t.courseId);
       }
     });
 
-
-    // --- דה־דופ לפי כותרת (primary), ואם אין – לפי type+id או URL ---
+    // דפים אחרונים
     const seen = new Set<string>();
     const deduped: DedupedVisit[] = [];
 
@@ -210,6 +260,7 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       const rawPageType = ((r as any)[PAGE_TYPE_FIELD] as string | undefined)?.trim();
 
       let ref: PageRef | null = null;
+
       if (rawPageId && rawPageType) {
         if (rawPageType === 'תחום') {
           ref = { type: 'domain', id: rawPageId };
@@ -219,22 +270,14 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       }
 
       const rawUrl = (r.Link || '').trim();
-      const url = ref
-        ? this.buildPageUrl(ref)
-        : rawUrl;
-
+      const url = rawUrl || (ref ? this.buildPageUrl(ref) : '');
       const rawTitle = (r.Title || '').trim();
 
-      // אם אין לא כותרת ולא URL – אין מה להציג
       if (!rawTitle && !url) continue;
 
-      // מפתח דה־דופ:
-      // 1. קודם כל לפי כותרת (case-insensitive)
-      // 2. אם אין כותרת – לפי type+id
-      // 3. ואם גם זה אין – לפי URL מנורמל
       const key =
         rawTitle
-          ? rawTitle.toLowerCase()
+          ? this.normalizeTitle(rawTitle)
           : ref
             ? `${ref.type}:${ref.id}`
             : this.normalizeUrlForKey(url);
@@ -246,37 +289,69 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
         url: url || '',
         title: rawTitle || url || '(ללא כותרת)',
         lastVisited: this.getVisitDate(r),
-        ref,
+        ref
       });
-
-      if (deduped.length >= MAX_ITEMS) break;
     }
 
     deduped.sort((a, b) => b.lastVisited.getTime() - a.lastVisited.getTime());
 
     const recommendations = await this.buildRecommendations(deduped);
 
-    this.setState({ loading: false, items: deduped, recommendations, topTitles });
+    this.setState({
+      loading: false,
+      items: deduped,
+      recommendations,
+      topTitles
+    });
   }
 
-
-  // ================== RECOMMENDATIONS ==================
+  private async getFutureCourseTitleSet(): Promise<Set<string>> {
+    const { context } = this.props;
+    const webUrl = context.pageContext.web.absoluteUrl;
+  
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+  
+    const cyclesUrl = encodeURI(
+      `${webUrl}/_api/web/lists/getbytitle('${CYCLES_LIST_TITLE}')/items` +
+      `?$select=Id,${CYCLE_START_DATE_FIELD},${CYCLE_COURSE_NAME_FIELD}/Id,${CYCLE_COURSE_NAME_FIELD}/Title` +
+      `&$expand=${CYCLE_COURSE_NAME_FIELD}` +
+      `&$top=5000`
+    );
+  
+    const cycleRows: any[] = await this.fetchAllItems(cyclesUrl);
+    const titleSet = new Set<string>();
+  
+    for (const row of cycleRows) {
+      const title = (row?.[CYCLE_COURSE_NAME_FIELD]?.Title || '').trim();
+      const rawDate = row?.[CYCLE_START_DATE_FIELD];
+  
+      if (!title || !rawDate) continue;
+  
+      const startDate = new Date(rawDate);
+      if (isNaN(startDate.getTime())) continue;
+  
+      startDate.setHours(0, 0, 0, 0);
+  
+      if (startDate >= today) {
+        titleSet.add(this.normalizeTitle(title));
+      }
+    }
+  
+    return titleSet;
+  }
 
   private async buildRecommendations(
     recent: DedupedVisit[]
   ): Promise<DedupedVisit[]> {
-
-    // 1. קח רק 5 כניסות אחרונות של קורסים
     const recentCourses = recent
       .filter(r => r.ref?.type === 'course')
       .slice(0, 5);
 
     if (recentCourses.length === 0) return [];
 
-    // 2. מפת הקורסים (כוללת section + visits)
     const courseMap = await this.buildCourseTitleToIdMap();
-
-    // 3. ספור הופעות של תחומים
+    const recentTitleSet = new Set(recent.map(r => this.normalizeTitle(r.title)));
     const sectionCount = new Map<number, number>();
 
     for (const r of recentCourses) {
@@ -291,91 +366,70 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
 
     if (sectionCount.size === 0) return [];
 
-    // 4. התחום הדומיננטי
     const dominantSectionId =
       Array.from(sectionCount.entries())
         .sort((a, b) => b[1] - a[1])[0][0];
 
-    // 5. שני הקורסים הכי נצפים באותו תחום
     const topCourses =
       Array.from(courseMap.values())
         .filter(c => c.sectionId === dominantSectionId)
+        .filter(c => !recentTitleSet.has(this.normalizeTitle(c.courseTitle)))
         .sort((a, b) => b.visitsCount - a.visitsCount)
-        .slice(0, 2);
+        .slice(0, 20);
 
-    // 6. החזרה בפורמט DedupedVisit
     return topCourses.map(c => ({
       title: c.courseTitle,
-      url: this.buildPageUrl({ type: 'course', id: c.id }),
+      url: c.link || this.buildPageUrl({ type: 'course', id: c.id }),
       lastVisited: new Date()
     }));
   }
 
-
-  // ================== HELPERS – DATA FROM LISTS ==================
-
   private normalizeTitle(title: string): string {
-    return title
+    return String(title || '')
+      .replace(/[\u200E\u200F\u202A-\u202E]/g, '')
+      .replace(/\u00A0/g, ' ')
+      .replace(/[–—−]/g, '-')
+      .replace(/[""]/g, '"')
+      .replace(/['']/g, "'")
+      .replace(/\s+/g, ' ')
       .trim()
-      .toLowerCase()
-      .replace(/[–—−]/g, '-') // מקפים חכמים
-      .replace(/\s+/g, ' ');  // רווחים כפולים
+      .toLowerCase();
   }
 
-  private async buildCourseTitleToIdMap(): Promise<
-    Map<
-      string,
-      {
-        id: number;
-        courseTitle: string;   // ✅ חובה
-        isVideo: boolean;
-        sectionTitle?: string;
-        sectionId?: number;
-        visitsCount: number;
-      }
-    >
-  > {
+  private async buildCourseTitleToIdMap(): Promise<Map<string, CourseMapItem>> {
     const { context } = this.props;
     const webUrl = context.pageContext.web.absoluteUrl;
 
-    // ===============================
-    // 1. Load visits from BezeqStatistics
-    // ===============================
     const statsUrl = encodeURI(
       `${webUrl}/_api/web/lists/getbytitle('${LIST_TITLE}')/items` +
-      `?$select=PageID,PageType` +
+      `?$select=Title,Link,Created,PageType` +
+      `&$filter=PageType eq 'קורס'` +
+      `&$orderby=Created desc` +
       `&$top=5000`
     );
 
-    const statsResp = await context.spHttpClient.get(
-      statsUrl,
-      SPHttpClient.configurations.v1
-    );
+    const statsRows: any[] = await this.fetchAllItems(statsUrl);
 
-    const visitsCountByCourseId = new Map<number, number>();
+    const visitsCountByTitle = new Map<string, number>();
+    const linkByTitle = new Map<string, string>();
 
-    if (statsResp.ok) {
-      const statsJson = await statsResp.json();
+    for (const row of statsRows) {
+      const title = (row.Title || '').trim();
+      if (!title) continue;
 
-      for (const row of statsJson.value || []) {
-        const pageType = (row.PageType || '').trim();
-        if (pageType !== 'קורס') continue;
+      const key = this.normalizeTitle(title);
 
-        const courseId = Number(row.PageID);
-        if (!courseId || isNaN(courseId)) continue;
+      visitsCountByTitle.set(
+        key,
+        (visitsCountByTitle.get(key) || 0) + 1
+      );
 
-        visitsCountByCourseId.set(
-          courseId,
-          (visitsCountByCourseId.get(courseId) || 0) + 1
-        );
+      const link = (row.Link || '').trim();
+      if (link && !linkByTitle.has(key)) {
+        linkByTitle.set(key, link);
       }
     }
 
-    console.log('Visits map size:', visitsCountByCourseId.size);
-
-    // ===============================
-    // 2. Load courses list
-    // ===============================
     const coursesUrl = encodeURI(
       `${webUrl}/_api/web/lists/getbytitle('${COURSES_LIST_TITLE}')/items` +
       `?$select=Id,Title,isVideo,theSection/Id,theSection/Title` +
@@ -383,77 +437,61 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
       `&$top=5000`
     );
 
-    const resp = await context.spHttpClient.get(
-      coursesUrl,
-      SPHttpClient.configurations.v1
-    );
+    const courseRows: any[] = await this.fetchAllItems(coursesUrl);
+    const map = new Map<string, CourseMapItem>();
 
-    if (!resp.ok) return new Map();
-
-    const json = await resp.json();
-    const map = new Map<
-      string,
-      {
-        id: number;
-        courseTitle: string;   // ✅ להוסיף כאן
-        isVideo: boolean;
-        sectionTitle?: string;
-        sectionId?: number;
-        visitsCount: number;
-      }
-    >();
-
-    // ===============================
-    // 3. Build map: Title → Course data
-    // ===============================
-    for (const row of json.value || []) {
+    for (const row of courseRows) {
       if (!row.Title || !row.Id) continue;
 
-      const sectionTitle = row.theSection?.Title;
-      const visitsCount = visitsCountByCourseId.get(row.Id) || 0;
+      const key = this.normalizeTitle(row.Title);
+      const visitsCount = visitsCountByTitle.get(key) || 0;
 
-      map.set(this.normalizeTitle(row.Title), {
+      map.set(key, {
         id: row.Id,
-        courseTitle: row.Title,   // ← להוסיף
+        courseTitle: row.Title,
         isVideo: !!row.isVideo,
         sectionId: row.theSection?.Id,
         sectionTitle: row.theSection?.Title,
-        visitsCount
+        visitsCount,
+        link: linkByTitle.get(key)
       });
-
-
-
-      // DEBUG – verify match
-      if (visitsCount > 0) {
-        console.log('COURSE VISITS MATCH', {
-          courseId: row.Id,
-          title: row.Title,
-          sectionTitle,
-          visitsCount
-        });
-      }
     }
 
     return map;
   }
 
+  private getTopTitles(rows: RawStatItem[], limit: number): TopTitle[] {
+    const counts = new Map<string, TopTitle>();
 
+    for (const r of rows) {
+      const title = (r.Title || '').trim();
+      if (!title) continue;
 
+      const key = this.normalizeTitle(title);
+      const existing = counts.get(key);
 
-  // ================== URL / KEYWORDS HELPERS ==================
+      if (existing) {
+        existing.count += 1;
 
-  // private chunk<T>(arr: T[], size: number): T[][] {
-  //   const out: T[][] = [];
-  //   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  //   return out;
-  // }
+        if (!existing.link) {
+          const currentLink = (r.Link || '').trim();
+          if (currentLink) {
+            existing.link = currentLink;
+          }
+        }
+      } else {
+        counts.set(key, {
+          title,
+          count: 1,
+          link: (r.Link || '').trim()
+        });
+      }
+    }
 
-  // private parseKeywords(raw: string): string[] {
-  //   return raw
-  //     .split(/[;|,]/)
-  //     .map(s => s.trim().toLowerCase())
-  //     .filter(Boolean);
-  // }
+    return Array.from(counts.values())
+      .sort((a, b) => (b.count - a.count) || a.title.localeCompare(b.title))
+      .slice(0, limit);
+  }
 
   private buildPageUrl(ref: PageRef): string {
     const base = this.props.context.pageContext.web.absoluteUrl.replace(/\/$/, '');
@@ -461,53 +499,28 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const pagePath = isDomain ? DOMAIN_PAGE_RELATIVE_URL : COURSE_PAGE_RELATIVE_URL;
     const paramName = isDomain ? DOMAIN_QUERY_PARAM : COURSE_QUERY_PARAM;
     const separator = pagePath.indexOf('?') >= 0 ? '&' : '?';
+
     return `${base}${pagePath}${separator}${paramName}=${encodeURIComponent(ref.id.toString())}`;
   }
 
-  // private parsePageRefFromUrl(rawUrl: string): PageRef | null {
-  //   const base = this.props.context.pageContext.web.absoluteUrl;
-  //   try {
-  //     const u = new URL(rawUrl.trim(), base);
-  //     const pathname = u.pathname.toLowerCase();
-
-  //     const isDomain = pathname.indexOf(DOMAIN_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
-  //     const isCourse = pathname.indexOf(COURSE_PAGE_RELATIVE_URL.toLowerCase()) >= 0;
-
-  //     if (!isDomain && !isCourse) return null;
-
-  //     const params = u.searchParams;
-  //     if (isDomain) {
-  //       const idStr = params.get(DOMAIN_QUERY_PARAM);
-  //       if (!idStr) return null;
-  //       const id = parseInt(idStr, 10);
-  //       if (!id) return null;
-  //       return { type: 'domain', id };
-  //     }
-
-  //     if (isCourse) {
-  //       const idStr = params.get(COURSE_QUERY_PARAM);
-  //       if (!idStr) return null;
-  //       const id = parseInt(idStr, 10);
-  //       if (!id) return null;
-  //       return { type: 'course', id };
-  //     }
-
-  //     return null;
-  //   } catch {
-  //     return null;
-  //   }
-  // }
-
   private normalizeUrlForKey(rawUrl: string): string {
     const base = this.props.context.pageContext.web.absoluteUrl;
+
     try {
       const u = new URL(rawUrl.trim(), base);
       let protocol = u.protocol.toLowerCase();
       let host = u.hostname.toLowerCase();
       let port = u.port;
-      if ((protocol === 'http:' && port === '80') || (protocol === 'https:' && port === '443')) port = '';
+
+      if ((protocol === 'http:' && port === '80') || (protocol === 'https:' && port === '443')) {
+        port = '';
+      }
+
       let pathname = u.pathname;
-      if (pathname !== '/' && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+      if (pathname !== '/' && pathname.endsWith('/')) {
+        pathname = pathname.slice(0, -1);
+      }
+
       return `${protocol}//${host}${port ? ':' + port : ''}${pathname}${u.search}${u.hash}`;
     } catch {
       return rawUrl.trim().toLowerCase();
@@ -519,6 +532,7 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
     const isSameDay = d.toDateString() === now.toDateString();
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
+
     if (isSameDay) return `היום ${d.toLocaleTimeString()}`;
     if (d.toDateString() === yesterday.toDateString()) return `אתמול ${d.toLocaleTimeString()}`;
     return d.toLocaleString();
@@ -526,47 +540,47 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
 
   private getVisitDate(row: RawStatItem): Date {
     const raw = (row as any)[CLICKED_AT_FIELD];
-    if (typeof raw === 'string' && !isNaN(Date.parse(raw))) return new Date(raw);
-    if (row.Modified && !isNaN(Date.parse(row.Modified))) return new Date(row.Modified);
-    if (typeof row.Created === 'string' && !isNaN(Date.parse(row.Created))) return new Date(row.Created);
+
+    if (typeof raw === 'string' && !isNaN(Date.parse(raw))) {
+      return new Date(raw);
+    }
+
+    if (row.Modified && !isNaN(Date.parse(row.Modified))) {
+      return new Date(row.Modified);
+    }
+
+    if (typeof row.Created === 'string' && !isNaN(Date.parse(row.Created))) {
+      return new Date(row.Created);
+    }
+
     return new Date(0);
   }
 
-  private getTopTitles(rows: RawStatItem[], limit: number): TopTitle[] {
-    const counts = new Map<string, TopTitle>();
-    for (const r of rows) {
-      const title = (r.Title || '').trim();
-      if (!title) continue;
-      const key = title.toLowerCase();
-      const existing = counts.get(key);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        counts.set(key, { title, count: 1 });
-      }
-    }
-
-    return Array.from(counts.values())
-      .sort((a, b) => (b.count - a.count) || a.title.localeCompare(b.title))
-      .slice(0, limit);
-  }
-
-  // ================== RENDER ==================
-
   public render(): React.ReactElement<IBPersonalZoneProps> {
-    const { loading, error, items, recommendations, topTitles } = this.state;
+    const {
+      loading,
+      error,
+      items,
+      recommendations,
+      topTitles,
+      showAllRecent,
+      showAllRecommendations
+    } = this.state;
+
+    const visibleRecent = showAllRecent ? items : items.slice(0, INITIAL_VISIBLE_ITEMS);
+    const visibleRecommendations = showAllRecommendations
+      ? recommendations
+      : recommendations.slice(0, INITIAL_VISIBLE_ITEMS);
 
     return (
       <section className={styles.bPersonalZone}>
         <TopNav context={this.props.context} />
 
-        {/* HEADER — completely outside layout */}
         <div className={styles.pageHeader}>
           <div className={styles.courseTitle}>האזור האישי</div>
           <div className={styles.topSeperator}></div>
         </div>
 
-        {/* LAYOUT */}
         <div className={styles.pageLayout}>
           <div className={styles.rightColumn}>
             <div className={styles.header3}>
@@ -591,16 +605,29 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
               )}
 
               {!loading && !error && items.length > 0 && (
-                <ul className={styles.list}>
-                  {items.map((it, idx) => (
-                    <li key={idx} className={styles.item}>
-                      <a href={it.url} className={styles.link} target="_self" rel="noopener">
-                        <span className={styles.title}>{it.title}</span>
-                        <span className={styles.meta}>{this.formatDate(it.lastVisited)}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className={styles.list}>
+                    {visibleRecent.map((it, idx) => (
+                      <li key={idx} className={styles.item}>
+                        <a href={it.url} className={styles.link} target="_self" rel="noopener">
+                          <span className={styles.title}>{it.title}</span>
+                          <span className={styles.meta}>{this.formatDate(it.lastVisited)}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {items.length > INITIAL_VISIBLE_ITEMS && !showAllRecent && (
+                    <button
+                      type="button"
+                      className={styles.expandButton}
+                      onClick={() => this.setState({ showAllRecent: true })}
+                    >
+                      <span className={styles.expandIcon}>&#x229E;</span>
+                      <span>להרחבה</span>
+                    </button>
+                  )}
+                </>
               )}
 
               {!loading && !error && (
@@ -612,20 +639,34 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
                   {recommendations.length === 0 ? (
                     <div className={styles.info}>אין המלצות כרגע.</div>
                   ) : (
-                    <ul className={styles.list}>
-                      {recommendations.map((it, idx) => (
-                        <li key={`rec-${idx}`} className={styles.item}>
-                          <a href={it.url} className={styles.link} target="_self" rel="noopener">
-                            <span className={styles.title}>{it.title}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <ul className={styles.list}>
+                        {visibleRecommendations.map((it, idx) => (
+                          <li key={`rec-${idx}`} className={styles.item}>
+                            <a href={it.url} className={styles.link} target="_self" rel="noopener">
+                              <span className={styles.title}>{it.title}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {recommendations.length > INITIAL_VISIBLE_ITEMS && !showAllRecommendations && (
+                        <button
+                          type="button"
+                          className={styles.expandButton}
+                          onClick={() => this.setState({ showAllRecommendations: true })}
+                        >
+                          <span className={styles.expandIcon}>&#x229E;</span>
+                          <span>להרחבה</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               )}
             </div>
           </div>
+
           <div className={styles.leftColumn}>
             <div className={styles.header2}>
               הכי נצפים
@@ -633,40 +674,42 @@ export default class BPersonalZone extends React.Component<IBPersonalZoneProps, 
 
             {!loading && !error && topTitles.length > 0 && (
               <div className={styles.coursesContainer}>
-                {topTitles.map((t, idx) => (
-                  <div
-                    key={`${t.title}-${idx}`}
-                    className={styles.oneCourse}
-                    style={{
-                      backgroundImage: t.photoUrl ? `url('${t.photoUrl}')` : undefined
-                    }}
-                    onClick={() => {
-                      if (!t.courseId) return;
+                {topTitles
+                  .filter(t => t.link || t.courseId)
+                  .map((t, idx) => (
+                    <div
+                      key={`${t.title}-${idx}`}
+                      className={styles.oneCourse}
+                      style={{
+                        backgroundImage: t.photoUrl ? `url('${t.photoUrl}')` : undefined
+                      }}
+                      onClick={() => {
+                        if (t.link) {
+                          window.location.href = t.link;
+                          return;
+                        }
 
-                      if (t.isVideo) {
-                        window.location.href =
-                          `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${t.courseId}`;
-                      } else {
-                        window.location.href =
-                          `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${t.courseId}`;
-                      }
-                    }}
-                  >
-                    <div className={styles.courseName}>
-                      {t.title}
+                        if (!t.courseId) return;
+
+                        if (t.isVideo) {
+                          window.location.href =
+                            `/sites/Bmaster/SitePages/VideoPage.aspx?CourseID=${t.courseId}`;
+                        } else {
+                          window.location.href =
+                            `/sites/Bmaster/SitePages/OneCourse.aspx?CourseID=${t.courseId}`;
+                        }
+                      }}
+                    >
+                      <div className={styles.courseName}>
+                        {t.title}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
-
           </div>
-
-
         </div>
       </section>
-
-
     );
   }
 }
